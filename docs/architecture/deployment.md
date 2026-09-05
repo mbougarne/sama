@@ -2,7 +2,7 @@
 
 ## Selected deployment architecture
 
-This is the selected operational design, not an implemented deployment. No Dockerfile, Compose definition, CI workflow, or deployment configuration exists in this phase.
+This document specifies the selected operational design and the evidence required to qualify a deployment.
 
 The initial management release uses a TLS reverse proxy, Sama, and PostgreSQL. Backend and frontend source and builds remain separate under `backend/` and `frontend/`. The release assembly step will package the Go binary and built frontend assets in one image for simpler self-hosting. This does not require either source tree to contain the other; deployment-level assembly would belong under `deploy/` when implemented.
 

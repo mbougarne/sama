@@ -2,7 +2,9 @@
 
 ## Stack and boundaries
 
-React + TypeScript with Webpack is the fixed frontend stack. Keep its package manifest, lockfile, TypeScript configuration, Webpack configuration, source, assets, and future tests inside `frontend/`. No root npm workspace is needed for a single web frontend. Select exact versions when implementation begins.
+The frontend is the administrative **backoffice** for cloud operators. The Go API supplies the backend-for-frontend role within the selected modular monolith; no separate Node runtime service is introduced.
+
+React + TypeScript with Webpack is the fixed frontend stack. Keep its package manifest, lockfile, TypeScript configuration, Webpack configuration, source, assets, and future tests inside `frontend/`. No root npm workspace is needed for a single web frontend. Exact initial versions now live in its manifest and lockfile.
 
 Use React Router for navigation and TanStack Query for server state. Use React state, reducers, and narrowly scoped context for client interaction state. No separate Redux or Zustand store is selected. Webpack should handle production chunk hashes, separate CSS assets, and a development API proxy. Node is frontend build/development tooling, not a production server requirement.
 
@@ -10,13 +12,13 @@ Target feature folders under `frontend/src/features/`: `identity`, `workspaces`,
 
 ## Interface direction
 
-There is no implemented interface or runnable preview in this phase. The selected navigation and workflows are described in [product scope](../product.md). Review those journeys before producing screens or UI code.
+The selected navigation and workflows are described in [product scope](../product.md). Review those journeys before producing screens or UI code.
 
 Prefer local system fonts and no third-party trackers. Preserve the Arabic name as Unicode with appropriate text direction. English is the proposed initial interface language; Arabic/RTL localization remains a separate scope decision.
 
 ## State management
 
-State has explicit owners. These are selected design rules, not installed libraries or implemented behavior.
+State has explicit owners. The following boundaries govern data lifecycle and security behavior.
 
 | State | Owner | Examples and lifetime |
 | --- | --- | --- |

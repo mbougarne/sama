@@ -21,7 +21,7 @@ flowchart TB
   services --> keys[Mounted encryption keyring]
 ```
 
-This diagram describes the selected runtime topology. No application code is present; accepted design still requires implementation and empirical acceptance.
+This diagram describes the selected runtime topology and its trust boundaries. Qualification requires empirical evidence for the implemented behavior.
 
 ## Why this shape
 
@@ -66,7 +66,7 @@ Dependencies flow from composition root to transport/services to domain contract
 | Packaging | Independently built frontend/backend artifacts assembled into one release image |
 | License | MIT with its standard notice condition and warranty/liability disclaimers |
 
-The core Go, React + TypeScript, Webpack, and PostgreSQL stack is fixed. Pin supported runtime/library versions when implementation begins; maintain security/version updates within the chosen stack. No dependencies are installed in this phase. [Decision records](../decisions/README.md) distinguish the accepted ADRs from refinements selected during stabilization.
+The core Go, React + TypeScript, Webpack, and PostgreSQL stack is fixed. Pin supported runtime/library versions in each project’s dependency manifests; maintain security/version updates within the chosen stack. [Decision records](../decisions/README.md) distinguish the accepted ADRs from refinements selected during stabilization.
 
 See [frontend state](frontend.md#state-management), [identifier policy](data.md#identifier-policy), and [cache policy](deployment.md#cache-policy) for precise ownership, defaults, and limits. PostgreSQL-backed jobs do not eliminate the separate question of caching. The initial workload has not been benchmarked; adding Redis would require measured justification and an explicit architecture amendment.
 

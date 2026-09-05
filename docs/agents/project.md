@@ -1,21 +1,20 @@
 # Sama project rules
 
-Sama (سماء, sky) is currently in the **architecture-only stabilization phase**. Read the root `README.md`, `docs/README.md`, and the relevant architecture documents before making changes.
+Sama (سماء, sky) is a self-hosted cloud backoffice. Read the root `README.md`, `docs/README.md`, and the relevant architecture documents before making changes.
 
-## Current scope
+## Scope and documentation ownership
 
-- Work on documentation, research, diagrams, and architecture decisions only. The explicitly requested full collaboration rules, Python record/lint tooling, templates, and focused tooling tests are authorized preparation within this phase.
-- Do not create application code, application tests, dependency manifests, generated clients, build tooling, CI workflows, containers, or runnable previews until the user explicitly asks to begin implementation.
-- Distinguish accepted design from implemented behavior. The user accepted the existing ADR decisions on 2026-09-05, subject to the refinements recorded in `docs/decisions/README.md`. Keep genuinely new proposals labeled; acceptance of architecture does not authorize coding.
+- Work within the explicit user task. Design acceptance is not blanket authorization for unrelated implementation or external actions. Create feature folders with their first agreed implementation, not speculatively.
+- Keep architecture stable. Amend architecture or ADRs only during an explicit design revisit or agreed design change. Do not add conversation summaries, phase banners, implementation progress or version-pin updates to architecture documents.
+- Keep setup and commands in `CONTRIBUTING.md` and the owning backend/frontend README. Keep task progress, evidence and handoffs in ignored local `agents/` records.
 - The core stack is fixed: Go backend, React + TypeScript frontend, Webpack, PostgreSQL, one repository. Do not propose replacing these languages, frameworks, or bundler. Security/version updates and improvements within this stack remain in scope.
 - Plan all backend code and tooling under `backend/` and all frontend code and tooling under `frontend/`. Global project documents belong at the root; detailed architecture belongs under `docs/`.
-- The selected future folder tree is documentation only. Do not create empty implementation folders during this phase.
 - Preserve useful provider research and cite its sources. Do not use ambient provider credentials or make cloud changes.
 - Sama manages provider products, never payments. Do not design payment collection/processing, checkout, payment-method storage, invoice settlement, account top-ups, refunds, or resale billing. Resource creation may incur charges billed directly by the provider; it must not introduce payment handling into Sama.
 - For documentation edits, check consistency and local links; do not introduce a test/build system just to validate documents.
-- Do not assume a GitHub owner, module path, deployment environment, or publication request.
+- Do not assume a GitHub owner, deployment environment, or publication request. The temporary local module path is sama/backend until hosting identity is selected.
 
-## Stabilization decisions
+## Accepted decisions
 
 - Use PostgreSQL for durable state and jobs; start with bounded in-process caching, without Redis. A shared cache would require measured need and an explicit architecture amendment.
 - Use UUIDv7 for Sama entity keys and public API identifiers; `id` is a field name, not an integer type. Keep provider IDs opaque and authentication tokens independently random.
@@ -27,4 +26,4 @@ Sama (سماء, sky) is currently in the **architecture-only stabilization phase
 
 Keep generic workflows and transport separate from provider-specific semantics. Distinguish what a provider offers, what a future adapter implements, and what the user is authorized to do. A timeout is not proof that a cloud action failed; a database lease does not fence a remote API.
 
-See `docs/architecture/repository.md` for the selected repository structure and `docs/roadmap.md` for the review phase and future implementation sequence.
+See `docs/architecture/repository.md` for the selected repository structure and `docs/roadmap.md` for the implementation sequence.

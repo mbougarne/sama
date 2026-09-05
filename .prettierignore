@@ -1,0 +1,7 @@
+# Finalized local AI records must never be reformatted.
+agents/
+frontend/node_modules/
+frontend/dist/
+backend/bin/
+/frontend/coverage/
+**/.pnpm-store/

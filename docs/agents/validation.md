@@ -1,6 +1,6 @@
 # Collaboration tooling and validation
 
-The full [rules](README.md) govern behavior. Python tooling validates observable record properties independently of future backend/frontend linting. Run it with Python 3.10+ and Git on macOS/Linux; only the Python standard library is used. Windows is not supported by the inherited POSIX lock implementation. No package installation, hooks, CI changes, or application setup are required.
+The full [rules](README.md) govern behavior. Python tooling validates observable record properties independently of backend/frontend linting. Run it with Python 3.10+ and Git on macOS/Linux; only the Python standard library is used. Windows is not supported by the inherited POSIX lock implementation. These Python collaboration commands require no package installation. The separate opt-in Git hook and CI workflow are described in [Contributing](../../CONTRIBUTING.md#pre-commit).
 
 ## Commands
 
@@ -51,4 +51,4 @@ Checksums stored with content are not independent tamper-proof evidence: coordin
 - `scripts/tests/`: focused collaboration-tool checks.
 - `agents/`: ignored local records and operational lock only.
 
-Keep future backend/frontend formatters, linters, builds and tests in their own directories. Never require private records in public CI or install/replace a Git hook as part of this workflow.
+Backend/frontend formatters, linters, builds and tests stay in their own directories. Public CI never requires private records. The explicitly requested hook is installed through scripts/install_hooks.py; it checks local records and the staged application tree without replacing existing unrelated hooks.

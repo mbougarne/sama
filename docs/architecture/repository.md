@@ -1,51 +1,10 @@
 # Repository structure
 
-## Current phase
+## Ownership and layout
 
-Sama contains architecture/project documentation and Python AI collaboration tooling. There is no application to run or application dependency/build setup. Collaboration checks live separately under `scripts/tests/`. The folder ownership is selected; implementation folders will be created only after an explicit request to begin coding.
+Backend and frontend are separate projects with their own dependencies, configuration, tests and build output. The following is the architectural expansion map, not a checklist of folders to create. Add modules with the features that need them. Global project documents stay at the root; detailed design and shared agent rules live under `docs/`.
 
-Current structure:
-
-```text
-sama/
-├── README.md
-├── LICENSE
-├── .gitignore              Excludes local agents/ records
-├── AGENTS.md
-├── CONTRIBUTING.md
-├── SECURITY.md
-├── CODE_OF_CONDUCT.md
-├── scripts/                   Collaboration CLI, engine, templates and tests
-└── docs/
-    ├── README.md
-    ├── product.md
-    ├── providers.md
-    ├── roadmap.md
-    ├── agents/
-    │   ├── README.md
-    │   ├── project.md
-    │   ├── records.md
-    │   ├── research.md
-    │   ├── rules/              All four shared rule documents
-    │   └── validation.md
-    ├── architecture/
-    │   ├── README.md
-    │   ├── repository.md
-    │   ├── data.md
-    │   ├── api.md
-    │   ├── security.md
-    │   ├── operations.md
-    │   ├── frontend.md
-    │   └── deployment.md
-    └── decisions/
-        └── README.md
-```
-
-Git metadata and the ignored local `agents/` record store are omitted from the tree. The [agent record format](../agents/records.md) defines its conversations, inputs, researches, commands, and history index. Shared collaboration rules live under `docs/agents/`; collaboration tools and their checks live under `scripts/`, separately from policy and future product tooling. Global project documents stay at the root. Detailed design belongs in `docs/`.
-
-## Future implementation layout
-
-The following is the selected future directory map, not a set of folders to create now. Backend/frontend separation is a user requirement; add each internal module only with its first feature.
+The ignored local `agents/` store is defined by the [record format](../agents/records.md). Shared collaboration tools, hook helpers and their tests live under `scripts/`; GitHub workflows under `.github/workflows/` invoke each project's checks. The tracked hook entry point lives in `.githooks/`. These shared entry points coordinate tooling without taking ownership of backend/frontend logic.
 
 ```text
 sama/
@@ -76,9 +35,9 @@ sama/
 ├── frontend/
 │   ├── README.md
 │   ├── package.json
-│   ├── package-lock.json
+│   ├── pnpm-lock.yaml
 │   ├── tsconfig.json
-│   ├── webpack.config.js
+│   ├── webpack.config.cjs
 │   ├── public/
 │   ├── src/
 │   │   ├── app/
@@ -91,11 +50,11 @@ sama/
 └── deploy/                 Shared release assembly, when needed
 ```
 
-Create each internal module with the feature that needs it; do not scaffold every package at once. Go unit tests would live beside their packages inside `backend/`. Backend integration fixtures belong there too. Frontend component and browser checks belong under `frontend/`. Generated build output and installed dependencies remain local to their owning project and outside version control.
+Create each internal module with the feature that needs it; do not scaffold every package at once. Go unit tests live beside their packages inside `backend/`. Backend integration fixtures belong there too. Frontend component and browser checks belong under `frontend/`. Generated build output and installed dependencies remain local to their owning project and outside version control.
 
 ## Ownership rules
 
-| Concern | Future owner |
+| Concern | Owner |
 | --- | --- |
 | Go source, Go dependencies, backend configuration and build tooling | `backend/` |
 | Database migrations, persistence, provider adapters, credentials and workers | `backend/` |
@@ -114,6 +73,6 @@ A single frontend does not need a root npm workspace. Backend tooling must not d
 
 The backend owns the HTTP API contract. A future generation step reads that contract and writes frontend types into the frontend directory. Frontend code communicates with Go over HTTP; it does not import backend source or provider SDKs.
 
-During development, the frontend’s Webpack server can proxy API calls to the Go server. Each runs from its own folder, with its own configuration. There are no commands or port assignments to configure in the current phase.
+During development, the frontend’s Webpack server can proxy API calls to the Go server. Each runs from its own folder, with its own configuration. Commands and addresses belong in the [backend](../../backend/README.md) and [frontend](../../frontend/README.md) guides.
 
 For deployment, source separation and runtime packaging are separate decisions. The selected initial release combines an independently built Go binary and frontend assets in one image for easy self-hosting. This preserves folder separation. The [deployment architecture](deployment.md) describes assembly; the choice does not require application source at the repository root.

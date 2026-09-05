@@ -33,7 +33,7 @@ The earlier summary IDs SAMA-A01–SAMA-A10 are **deprecated 2026-09-05** as red
 4. Complete the requested work and all four artifacts. Keep prompt capture complete; keep research educational and commands deduplicated. Record actual agent identity without inventing model names, human identities, or telemetry.
 5. Finalize the event with the appropriate repository evidence scope, then run `python3 scripts/collab.py lint .`. Report unresolved errors instead of bypassing them. Summarize the outcome and verification for the user.
 
-See [validation](validation.md) for executable commands and recovery boundaries. The explicit tooling request authorizes collaboration scripts and their focused tests; Sama application implementation is still deferred.
+See [validation](validation.md) for executable commands and recovery boundaries. Keep task scope in the user request and local records; shared rules describe enduring behavior rather than implementation progress.
 
 ## Provenance and changes
 

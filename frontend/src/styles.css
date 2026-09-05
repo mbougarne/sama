@@ -1,0 +1,119 @@
+:root {
+  --sky-50: #f0f9ff;
+  --sky-100: #e0f2fe;
+  --sky-200: #bae6fd;
+  --sky-500: #0ea5e9;
+  --sky-700: #0369a1;
+  --sky-900: #0c4a6e;
+  --ink: #123047;
+  --muted: #415f76;
+  --cloud: #fff;
+  font-family: system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--sky-50);
+  font-synthesis: none;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: var(--sky-700);
+}
+a:focus-visible {
+  outline: 3px solid var(--sky-700);
+  outline-offset: 4px;
+}
+.backoffice {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  min-height: 100vh;
+}
+.sidebar {
+  background: linear-gradient(180deg, var(--cloud), var(--sky-100));
+  border-right: 1px solid var(--sky-200);
+  padding: 2rem;
+}
+.brand {
+  color: var(--sky-900);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 1.5rem;
+}
+nav {
+  margin-top: 3rem;
+}
+nav a {
+  display: block;
+  padding: 0.8rem 1rem;
+  border-radius: 0.4rem;
+  text-decoration: none;
+}
+nav a.active {
+  box-shadow: inset 3px 0 var(--sky-500);
+  background: var(--sky-100);
+  font-weight: 600;
+}
+main {
+  padding: clamp(1.5rem, 5vw, 5rem);
+  min-width: 0;
+}
+h1 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0.5rem 0;
+}
+h2 {
+  font-size: 1.25rem;
+}
+p {
+  line-height: 1.65;
+}
+.eyebrow {
+  color: var(--sky-700);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.intro,
+.muted {
+  color: var(--muted);
+}
+.empty-state {
+  background: var(--cloud);
+  border: 1px solid var(--sky-200);
+  border-radius: 0.75rem;
+  border-top: 3px solid var(--sky-500);
+  margin-top: 2.5rem;
+  padding: 2rem;
+  max-width: 48rem;
+}
+.skip-link {
+  position: absolute;
+  top: -6rem;
+  left: 1rem;
+  padding: 1rem;
+  background: var(--cloud);
+  z-index: 1;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+@media (max-width: 42rem) {
+  .backoffice {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--sky-200);
+    padding: 1rem 1.5rem;
+  }
+  nav {
+    margin-top: 1rem;
+  }
+  .brand {
+    color: var(--sky-900);
+    max-width: 12rem;
+  }
+}

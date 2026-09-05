@@ -2,7 +2,7 @@
 
 ## Proposed contract ownership
 
-This document describes the intended API. No endpoints, OpenAPI files, generated clients, or API tests exist in this phase.
+This document specifies the API contract and adapter boundaries; implementations must be qualified against these requirements.
 
 When implementation begins, the backend should own the source contract at `backend/api/openapi.yaml`. Generate frontend types into `frontend/src/api/generated/` from that contract. This is a contract-generation dependency, not a runtime import of backend code into the frontend. Changes to the contract should be reviewed alongside the affected feature.
 

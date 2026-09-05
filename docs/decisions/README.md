@@ -2,7 +2,7 @@
 
 Stabilization date: **2026-09-05**. The owner instructed the project to use the existing ADR decisions rather than their alternatives. Records 001–007 are now accepted architectural direction; 009–010 remain explicit user requirements. Record 008 is revised to match the requested simple permissive licensing. The cache clarification in 003 and records 011–012 are selected refinements in response to this review, not claims that the owner explicitly named each library or UUID version.
 
-Acceptance or selection here describes the design only. Nothing is implemented, benchmarked, or production-qualified. New implementation still requires an explicit request. Historical alternatives are recorded only to explain decisions, not offered as competing plans. The core Go, React + TypeScript, Webpack, and PostgreSQL stack is fixed; improvements and security/version updates within it remain in scope.
+Acceptance or selection describes design, not implementation or production qualification. Historical alternatives explain decisions. The core Go, React + TypeScript, Webpack, and PostgreSQL stack is fixed; improvements and security/version updates within it remain in scope.
 
 ## ADR-001: Go modular monolith — accepted
 
@@ -89,8 +89,6 @@ Acceptance or selection here describes the design only. Nothing is implemented, 
 **Decision:** All Go source, modules, migrations, API contracts, and backend tooling belong under `backend/`. All React source, Webpack/TypeScript configuration, npm dependencies, and frontend tooling belong under `frontend/`. Global documents stay at the root; architecture stays in `docs/`.
 
 **Consequences:** Independent source/build ownership with an HTTP contract between them. Release assembly can combine their outputs without merging source trees. [Repository structure](../architecture/repository.md)
-
-**Current phase:** Document the layout only; do not create implementation folders yet.
 
 ## ADR-010: Provider payments remain outside Sama — user requirement
 

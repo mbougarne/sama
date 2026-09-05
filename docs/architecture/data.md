@@ -1,6 +1,6 @@
 # Data model and consistency
 
-**Design specification. No database schema has been migrated yet.** PostgreSQL 18 is the target store; its transaction and row-lock semantics underpin the worker design. Consult [PostgreSQL locking](https://www.postgresql.org/docs/current/explicit-locking.html) when implementing.
+PostgreSQL 18 is the target store; its transaction and row-lock semantics underpin the worker design. Consult [PostgreSQL locking](https://www.postgresql.org/docs/current/explicit-locking.html) when implementing.
 
 ## Model
 

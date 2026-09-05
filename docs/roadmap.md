@@ -1,24 +1,20 @@
 # Implementation roadmap
 
-**Current phase: architecture stabilization only.** The owner accepted the main ADR direction on 2026-09-05. The later milestones describe the selected delivery sequence, not work to start automatically. Implementation still requires an explicit user request.
+Milestones define delivery order and acceptance criteria. They are not a live task tracker or authorization to start work; task scope and progress belong in collaboration records.
 
 **All milestones exclude payment and billing management.** Provisioning may create provider-billed charges, but Sama must never handle payment. Any required checkout, top-up, or billing-account action is completed directly with the provider. This is a fixed product boundary, not a feature deferred to a later release or Pro tier.
 
-## M0 — Architecture stabilization (current)
+## M0 — Architecture stabilization
 
-The core stack, component boundaries, separate backend/frontend ownership, OIDC, encrypted credentials, durable operations, and provider delivery sequence are accepted. This review selects MIT, PostgreSQL with bounded local caching, detailed frontend state ownership, and UUIDv7 entity identifiers. Their status and rationale are in the [decision records](decisions/README.md).
+Establish the component boundaries, separate backend/frontend ownership, product scope and security requirements recorded in the [decisions](decisions/README.md). Keep the chosen stack fixed. Revisit design through explicit amendments when evidence warrants a change.
 
-Remaining preparation is within the chosen design: define the first implementation slice, decide actual release version pins when coding starts, and resolve provider capability uncertainties through the documented qualification process. Do not reopen language/framework/bundler choices as implementation alternatives.
+Acceptance: decisions and consequences are documented consistently, provider uncertainties have a qualification path, and the [collaboration contract](agents/README.md) gives contributors a common workflow.
 
-No application code, application tests, dependencies, build tooling, or deployment files belong to this phase. Acceptance criteria below describe future evidence, not checks already run. Architecture acceptance does not automatically authorize coding.
+## M0.1 — Repository scaffolding
 
-The owner also requested pre-implementation AI collaboration setup: shared rules under `docs/agents/`, a thin root `AGENTS.md`, and ignored local records under `agents/`. See the [collaboration contract](agents/README.md). This preparation includes standalone Python collaboration tooling and focused checks, and does not start application implementation.
+Create separate `backend/` and `frontend/` projects according to [repository structure](architecture/repository.md). Each owns its source, dependency manifests, configuration, build output and tests. Shared hooks and CI invoke each project's checks.
 
-## M0.1 — Repository scaffolding (future, after implementation is requested)
-
-Create separate `backend/` and `frontend/` projects according to [repository structure](architecture/repository.md). Each owns its source, dependency manifests, configuration, build output, and tests. Add only the tooling needed for the first agreed implementation slice. Introduce shared deployment assembly or CI only when needed.
-
-Acceptance at that future stage: each side can be navigated and built from its own directory; the HTTP contract is the integration boundary; the root contains shared project material rather than application source.
+Acceptance: each side builds and checks independently; the HTTP contract is the integration boundary; the root contains shared project material rather than application source. Formatting, lint, meaningful tests and builds run locally and in CI.
 
 ## M1 — Identity and durable workspace foundation
 
@@ -65,7 +61,3 @@ Choose the real GitHub owner/module path; configure private reporting and modera
 ## Later candidates
 
 AWS SQS/SNS configuration inventory and carefully scoped management; broader S3 providers; team approval workflows; Arabic/RTL localization; SSE progress; scoped automation; cost visibility; external audit export. Each needs a product case and its own data-access/risk model. No assumption that these are required for v1.
-
-## Current next step
-
-Use the adopted collaboration workflow for subsequent work. The owner has another preparation step before implementation; its scope has not yet been specified. Keep the accepted architecture as the baseline. Do not begin M0.1 or M1 until the user explicitly asks to start implementation.

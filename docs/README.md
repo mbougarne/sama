@@ -1,6 +1,6 @@
 # Sama documentation
 
-Status: **architecture baseline stabilized on 2026-09-05; application architecture only; collaboration tooling available**. The owner accepted the existing ADR decisions and fixed the core stack. Licensing, caching, frontend state, and identifier refinements are recorded with their selection status in [decision records](decisions/README.md). None of this authorizes implementation or claims working software.
+This index describes the product and its stable design. Development commands and contributor checks live in [Contributing](../CONTRIBUTING.md).
 
 | Read | Purpose |
 | -------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -17,17 +17,6 @@ Status: **architecture baseline stabilized on 2026-09-05; application architectu
 | [Architecture decisions](decisions/README.md) | Accepted direction, selected refinements, rationale, and future evidence |
 | [Roadmap](roadmap.md) | Ordered implementation work and acceptance gates |
 | [Repository structure](architecture/repository.md) | Selected backend/frontend folders, ownership, and build boundaries |
-
-## This review's conclusions
-
-| Topic | Direction |
-| --- | --- |
-| Community conduct | Technical scope, specific behavioral feedback, cultural awareness, fixed stack; participation rules do not restrict licensed use |
-| Durable work and cache | PostgreSQL jobs and state; bounded in-process caches initially; no Redis dependency |
-| License | Standard MIT; commercial/proprietary use and resale permitted with notice retention; sandbox guidance outside license terms |
-| Frontend state | TanStack Query, React Router, local React state/reducers, narrow context; no duplicate global server-data store |
-| Identifiers | UUIDv7 entity keys internally and externally; `id` is a UUID field; no default numeric surrogate |
-| Phase | Continue architecture stabilization until implementation is explicitly requested |
 
 ## Reading guide
 
