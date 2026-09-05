@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Sama contains architecture and project documentation only. There is no application to run, no dependency setup, and no test or build system. The folder ownership is selected; implementation folders will be created only after an explicit request to begin coding.
+Sama contains architecture/project documentation and Python AI collaboration tooling. There is no application to run or application dependency/build setup. Collaboration checks live separately under `scripts/tests/`. The folder ownership is selected; implementation folders will be created only after an explicit request to begin coding.
 
 Current structure:
 
@@ -10,15 +10,24 @@ Current structure:
 sama/
 ├── README.md
 ├── LICENSE
+├── .gitignore              Excludes local agents/ records
 ├── AGENTS.md
 ├── CONTRIBUTING.md
 ├── SECURITY.md
 ├── CODE_OF_CONDUCT.md
+├── scripts/                   Collaboration CLI, engine, templates and tests
 └── docs/
     ├── README.md
     ├── product.md
     ├── providers.md
     ├── roadmap.md
+    ├── agents/
+    │   ├── README.md
+    │   ├── project.md
+    │   ├── records.md
+    │   ├── research.md
+    │   ├── rules/              All four shared rule documents
+    │   └── validation.md
     ├── architecture/
     │   ├── README.md
     │   ├── repository.md
@@ -32,7 +41,7 @@ sama/
         └── README.md
 ```
 
-Git metadata is omitted from the tree. Global project documents stay at the root. Detailed design belongs in `docs/`.
+Git metadata and the ignored local `agents/` record store are omitted from the tree. The [agent record format](../agents/records.md) defines its conversations, inputs, researches, commands, and history index. Shared collaboration rules live under `docs/agents/`; collaboration tools and their checks live under `scripts/`, separately from policy and future product tooling. Global project documents stay at the root. Detailed design belongs in `docs/`.
 
 ## Future implementation layout
 

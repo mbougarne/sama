@@ -10,7 +10,9 @@ The core stack, component boundaries, separate backend/frontend ownership, OIDC,
 
 Remaining preparation is within the chosen design: define the first implementation slice, decide actual release version pins when coding starts, and resolve provider capability uncertainties through the documented qualification process. Do not reopen language/framework/bundler choices as implementation alternatives.
 
-No application code, tests, dependencies, build tooling, or deployment files belong to this phase. Acceptance criteria below describe future evidence, not checks already run. Architecture acceptance does not automatically authorize coding.
+No application code, application tests, dependencies, build tooling, or deployment files belong to this phase. Acceptance criteria below describe future evidence, not checks already run. Architecture acceptance does not automatically authorize coding.
+
+The owner also requested pre-implementation AI collaboration setup: shared rules under `docs/agents/`, a thin root `AGENTS.md`, and ignored local records under `agents/`. See the [collaboration contract](agents/README.md). This preparation includes standalone Python collaboration tooling and focused checks, and does not start application implementation.
 
 ## M0.1 — Repository scaffolding (future, after implementation is requested)
 
@@ -66,4 +68,4 @@ AWS SQS/SNS configuration inventory and carefully scoped management; broader S3 
 
 ## Current next step
 
-Review the stabilization refinements in ADR-003, ADR-008, ADR-011, and ADR-012, alongside the updated conduct policy. Keep the accepted architecture as the baseline. Do not begin M0.1 or M1 until the user explicitly asks to start implementation.
+Use the adopted collaboration workflow for subsequent work. The owner has another preparation step before implementation; its scope has not yet been specified. Keep the accepted architecture as the baseline. Do not begin M0.1 or M1 until the user explicitly asks to start implementation.

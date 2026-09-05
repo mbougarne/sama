@@ -4,7 +4,7 @@
 
 ## Current phase: architecture stabilization
 
-This repository contains documentation only. The owner accepted the main architecture decisions on 2026-09-05. The documentation now records that baseline and the refinements selected during this review; no architecture decision is a claim of implemented behavior. There is no application, test suite, dependency installation, or deployment setup to run.
+This repository contains architecture documentation and local AI collaboration tooling; application implementation has not started. The owner accepted the main architecture decisions on 2026-09-05. The documentation now records that baseline and the refinements selected during this review; no architecture decision is a claim of implemented behavior. There is no application, application test suite, dependency installation, or deployment setup to run. The collaboration scripts have their own focused checks.
 
 The fixed stack is Go, React + TypeScript, Webpack, and PostgreSQL, in the same repository with separate **`backend/`** and **`frontend/`** directories. These directories will be created when coding is explicitly requested. Global project documents stay at the root.
 
@@ -29,6 +29,10 @@ The accepted direction is a Go modular monolith, OIDC identity, encrypted provid
 Selected refinements: PostgreSQL plus bounded in-process caching without Redis; TanStack Query/React Router/local React state for frontend state ownership; UUIDv7 entity identifiers internally and in the API. See [decision records](docs/decisions/README.md) for rationale and status. These remain architecture only.
 
 The [MIT license](LICENSE) permits commercial use, resale, modification, and proprietary derivatives, subject to retaining its notice. It includes standard warranty/liability disclaimers. Future releases should be evaluated in an isolated sandbox before production; this is operational guidance, not an added license condition.
+
+## AI collaboration
+
+[AGENTS.md](AGENTS.md) routes agents to the shared rules under [docs/agents/](docs/agents/README.md). Conversation, input, research, and command records stay local in the ignored `agents/` folder. This documentation workflow is independent of application linting; the standalone Python collaboration workflow is available under `scripts/`.
 
 ## Project documents
 

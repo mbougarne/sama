@@ -1,9 +1,10 @@
 # Sama documentation
 
-Status: **architecture baseline stabilized on 2026-09-05; documentation only**. The owner accepted the existing ADR decisions and fixed the core stack. Licensing, caching, frontend state, and identifier refinements are recorded with their selection status in [decision records](decisions/README.md). None of this authorizes implementation or claims working software.
+Status: **architecture baseline stabilized on 2026-09-05; application architecture only; collaboration tooling available**. The owner accepted the existing ADR decisions and fixed the core stack. Licensing, caching, frontend state, and identifier refinements are recorded with their selection status in [decision records](decisions/README.md). None of this authorizes implementation or claims working software.
 
 | Read | Purpose |
 | -------------------------------------------------------- | --------------------------------------------------------------------- |
+| [AI collaboration](agents/README.md) | Shared agent rules, local records, and validation boundaries |
 | [Product](product.md) | Audience, product principles, release scope, user journeys |
 | [Architecture overview](architecture/README.md) | System boundaries, deployment topology, stack and tradeoffs |
 | [Provider research](providers.md) | Source-backed API findings, capability differences, delivery order |
