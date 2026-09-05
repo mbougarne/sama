@@ -15,3 +15,5 @@
 
 # pnpm may create a local store when a shared store is unavailable.
 **/.pnpm-store/
+
+ticket

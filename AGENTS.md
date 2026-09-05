@@ -12,6 +12,8 @@ Before proposing, editing, reviewing, or recording work, read these tracked docu
 
 Then read [README.md](README.md), [the documentation index](docs/README.md), and the architecture relevant to the request. These paths are relative to the repository root. Do not substitute an external standard, a skill, or a historical record for this contract.
 
+For ticket implementation, read [ticket conventions](ticket/README.md), the selected ticket from [the backlog](ticket/backlog.md), and its dependencies. Follow its 500-changed-line limit and the `feat/`, `bug/`, or `chore/` branch convention with the exact `SAMA-NNN` ID. Split an oversized ticket before proceeding.
+
 Record new user inputs under ignored `agents/`, using matching filenames in `conversations/`, `inputs/`, `researches/`, and `commands/`, indexed by `history.json`. Keep records local; never force-add them. Start from the latest relevant finalized handoff when present, then verify against the current checkout.
 
 Shared rules live in `docs/agents/`; runtime records live in `agents/`. Use `python3 scripts/collab.py new` for each input, complete the four drafts, then `finalize` and `lint` before finishing. Keep architecture stable: edit its documents only for an explicit design revisit or agreed amendment. Keep setup instructions in contributor/project READMEs and task progress in local records. Do not infer authorization for unrelated features, cloud changes or deployment from a design document. Sama never handles payments.
