@@ -4,7 +4,7 @@
 
 ## Model
 
-Use application-generated UUIDs for internal IDs, UTC `timestamptz`, explicit foreign keys, and versioned migrations. Provider IDs are opaque text, never converted to integers across the boundary. Never assume global uniqueness of a provider ID. Resource identity includes connection, API family, resource type, region/scope, and native ID.
+Use application-generated UUIDv7 entity keys, native PostgreSQL `uuid` columns, UTC `timestamptz`, explicit foreign keys, and versioned migrations. The field name `id` refers to the UUID; it does not mean an auto-increment integer. Provider IDs are opaque text, never converted to integers across the boundary. Never assume global uniqueness of a provider ID. Resource identity includes connection, API family, resource type, region/scope, and native ID.
 
 ```mermaid
 erDiagram
@@ -37,11 +37,32 @@ erDiagram
 | `operation_events` | Append-only sequence per operation, from/to state, timestamp, allowed-field diagnostic summary; composite FK to workspace/operation. |
 | `jobs` | Workspace, connection, operation or sync reference, type, payload schema version, state, next run time, lease owner/token/expiry, attempt count, deadline. No credentials or unrestricted payload dumps. |
 | `resource_locks` | Workspace/connection/type/scope/native ID or creation slot; owning operation, fencing version. Locks for ambiguous mutations survive a worker lease expiring. |
-| `audit_events` | Monotonic ID, workspace, actor kind/ID, action, target, outcome, request/operation IDs, timestamp, selected diff metadata. Append-only to the runtime role. |
+| `audit_events` | UUIDv7 `id`, workspace, actor kind/ID, action, target, outcome, request/operation IDs, timestamp, selected diff metadata. Append-only to the runtime role. |
 
-Tenant-bearing references use composite foreign keys `(workspace_id, referenced_id)`, even if IDs are globally random. This prevents a valid ID from one tenant being linked into another tenant’s operation. Access queries include workspace **and** connection permissions; authorization cannot be delegated to UUID unpredictability.
+Tenant-bearing references use composite foreign keys `(workspace_id, referenced_id)`, even when identifiers are globally unique. This prevents a valid ID from one tenant being linked into another tenant’s operation. Access queries include workspace **and** connection permissions; authorization cannot be delegated to UUID unpredictability.
 
 Keep only allowed display metadata in resource details JSONB, with a versioned schema and size cap (initial target: 64 KiB per resource). No user-data scripts, passwords, private keys, raw token responses, object contents, or queue messages. Do not store entire SDK responses for debugging. Size limits also apply before JSON parsing on the outbound client.
+
+## Identifier policy
+
+Use the same UUIDv7 for a Sama entity inside PostgreSQL and in the API. There is no separate `internal_id`/`public_id` mapping in the baseline. Keep familiar names such as `id`, `workspace_id`, and `connection_id`; document their UUID type in the schema. API JSON and URLs use canonical lowercase hyphenated strings; frontend code treats them as opaque strings, never JavaScript numbers.
+
+Generate the UUID once in the Go application before assembling a related transaction or credential encryption context, using an RFC 9562-compatible implementation selected during coding. Enforce primary/unique keys in PostgreSQL. Do not generate a new resource identity on each sync; upsert against the composite provider identity and preserve Sama's UUID.
+
+UUIDv7 has a time-ordered component, which is a useful basis for insertion locality compared with purely random keys, not proof of faster queries in Sama. It also exposes approximate generation time. It does not guarantee transaction commit order or eliminate the need for explicit timestamps, stable cursors, and per-operation event sequence numbers. PostgreSQL stores UUIDs as a native 128-bit type; UUIDv7 is defined by RFC 9562. [UUID type](https://www.postgresql.org/docs/current/datatype-uuid.html), [UUID specification](https://www.rfc-editor.org/rfc/rfc9562.html)
+
+| Identifier category | Rule |
+| --- | --- |
+| Independently identified entities | UUIDv7 primary key; same value shared with authorized frontend clients |
+| Memberships/grants and other associations | Composite UUID foreign keys can be the primary key; no unnecessary extra ID |
+| Provider native IDs | Preserve opaque provider values, qualified by connection, API family, resource type, and scope |
+| Event ordering, versions, counters | Explicit numeric sequence/version fields when needed; these are not alternate public identities |
+| Session, CSRF, invitation, and reset secrets | Independent cryptographically random tokens; never use UUIDv7 as a secret |
+| Request correlation and native idempotency | Follow the receiving protocol; an adapter may require a UUIDv4 correlation value, separate from entity identity |
+
+An installation being self-hosted or organization-centric does not remove permission boundaries. Numeric IDs can be safe with correct authorization, and UUIDs do not make an endpoint safe by themselves. Every query and mutation still enforces membership, workspace, and connection scope.
+
+A numeric surrogate plus stable public UUID may be considered for a particular high-volume table only after representative measurements demonstrate a material benefit that outweighs extra indexes, joins, and mapping logic. This is not a default optimization and is not an implemented fallback. Record any such amendment explicitly; never change public identities simply to tune a query.
 
 ## Indexes and access patterns
 

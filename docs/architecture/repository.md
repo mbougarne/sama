@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Sama contains architecture and project documentation only. There is no application to run, no dependency setup, and no test or build system. Read and refine the design before creating implementation folders.
+Sama contains architecture and project documentation only. There is no application to run, no dependency setup, and no test or build system. The folder ownership is selected; implementation folders will be created only after an explicit request to begin coding.
 
 Current structure:
 
@@ -36,7 +36,7 @@ Git metadata is omitted from the tree. Global project documents stay at the root
 
 ## Future implementation layout
 
-The following is a proposed directory map, not a set of folders to create now. Backend/frontend separation is a user requirement; internal details can be refined during architecture review.
+The following is the selected future directory map, not a set of folders to create now. Backend/frontend separation is a user requirement; add each internal module only with its first feature.
 
 ```text
 sama/
@@ -107,4 +107,4 @@ The backend owns the HTTP API contract. A future generation step reads that cont
 
 During development, the frontend’s Webpack server can proxy API calls to the Go server. Each runs from its own folder, with its own configuration. There are no commands or port assignments to configure in the current phase.
 
-For deployment, source separation and runtime packaging are separate decisions. A release can combine an independently built Go binary and frontend assets into one image for easy self-hosting, or serve frontend assets separately behind the same origin. Both preserve the required folder separation. The [deployment proposal](deployment.md) describes the combined-image option; packaging remains open for review.
+For deployment, source separation and runtime packaging are separate decisions. The selected initial release combines an independently built Go binary and frontend assets in one image for easy self-hosting. This preserves folder separation. The [deployment architecture](deployment.md) describes assembly; the choice does not require application source at the repository root.

@@ -11,3 +11,9 @@ Include affected version/commit, expected versus actual behavior, a minimal repr
 ## Supported releases
 
 There are no supported production releases yet. Before release, define the support window, response process, dependency update policy, and security advisories workflow. See [roadmap](docs/roadmap.md) for release gates.
+
+## Before production use
+
+When an implementation is available, evaluate it in your own isolated sandbox with disposable provider resources before connecting production accounts. Check permissions, failure recovery, backups, and upgrades for your deployment; start with read-only access and minimal privileges. Users operate their own provider accounts and are responsible for deployment choices and provider charges.
+
+Sama is provided under the [MIT license](LICENSE), which contains warranty and liability disclaimers. Those terms are not a guarantee that every form of liability is excluded under every applicable law. The sandbox guidance is operational advice, not an additional license restriction or a warranty that testing removes all risk. Obtain jurisdiction-specific legal advice if you need a determination of how those terms apply to a particular deployment or commercial agreement.

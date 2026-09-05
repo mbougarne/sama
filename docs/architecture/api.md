@@ -37,7 +37,7 @@ Identity routes live outside this prefix: `/auth/login`, `/auth/callback`, `/aut
 
 ## Shapes and conventions
 
-Use snake_case JSON fields, RFC3339 UTC timestamps, UUID internal identifiers, opaque native identifiers, and discriminated action inputs. Lists return `{data: [...], next_cursor: null | string}`. A resource returns shared identity, display name, provider/account/region, normalized status, native status, observation timestamp, freshness, and a typed details object. Never overload `null` to mean both unsupported and unknown; expose explicit availability/status reasons.
+Use snake_case JSON fields, RFC3339 UTC timestamps, UUIDv7 Sama entity identifiers represented as JSON strings, opaque provider native identifiers, and discriminated action inputs. Lists return `{data: [...], next_cursor: null | string}`. A resource returns shared identity, display name, provider/account/region, normalized status, native status, observation timestamp, freshness, and a typed details object. Never overload `null` to mean both unsupported and unknown; expose explicit availability/status reasons.
 
 Errors follow an application/problem+json envelope: `type`, `title`, `status`, `code`, `request_id`, and optional allowed-field validation errors. Document this shape in the future OpenAPI contract. Stable codes include `permission_denied`, `unsupported_capability`, `stale_review`, `resource_busy`, `provider_rate_limited`, `provider_unavailable`, `outcome_unknown`. Never forward upstream error text without sanitization.
 
@@ -61,6 +61,8 @@ Create separate capability interfaces for snapshots, DNS, object storage and mes
 `Submission` records native action ID, safe request reference, correlation method, and retry classification; it never embeds credentials or arbitrary raw JSON. `Outcome` distinguishes pending, definite success, definite failure, and insufficient evidence. Normalize provider errors into typed categories with optional safe RetryAfter, provider request ID, and an `Ambiguous` flag. Never make a generic `Retryable=true` sufficient to retry a mutation.
 
 Transport shares TLS, validated endpoints, timeouts, size caps, redaction, and bounded retry mechanisms. Authentication, pagination interpretation, resource mapping, quota scope, and completion semantics remain provider-specific. SDK clients may be used behind these interfaces after reviewing their default retries, logging, endpoint overrides, and credential lookup behavior.
+
+Entity fields named `id` and `*_id` carry UUIDs, not integers. Parse and validate canonical UUID strings at the boundary; UUID possession does not grant access. Provider-specific identifiers remain separate opaque values. API DTOs expose no alternate numeric lookup key. See [identifier policy](data.md#identifier-policy).
 
 ## Compatibility and evolution
 

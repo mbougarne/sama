@@ -1,28 +1,40 @@
 # Deployment, reliability, and operations
 
-## Proposed deployment
+## Selected deployment architecture
 
-This is an operational design for review. No Dockerfile, Compose definition, CI workflow, or deployment configuration exists in this phase.
+This is the selected operational design, not an implemented deployment. No Dockerfile, Compose definition, CI workflow, or deployment configuration exists in this phase.
 
-The proposed management release uses a TLS reverse proxy, Sama, and PostgreSQL. Backend and frontend source and builds remain separate under `backend/` and `frontend/`. A future release assembly step may package the Go binary and built frontend assets in one image for simpler self-hosting. This does not require either source tree to contain the other; deployment-level assembly would belong under `deploy/` when implemented.
+The initial management release uses a TLS reverse proxy, Sama, and PostgreSQL. Backend and frontend source and builds remain separate under `backend/` and `frontend/`. The release assembly step will package the Go binary and built frontend assets in one image for simpler self-hosting. This does not require either source tree to contain the other; deployment-level assembly would belong under `deploy/` when implemented.
 
 Mount an encryption keyring and OIDC configuration. Keep PostgreSQL off public networks, expose only the proxy, and run the app as a non-root user with a read-only filesystem. HTTPS and a configured public origin are mandatory for authenticated deployments.
 
-## Proposed configuration contract
+## Configuration design
 
 Target settings: public origin, database URL/file reference, OIDC issuer/client ID/client-secret file, keyring file, worker mode, request/job budgets, retention, provider/action enablement, and trusted proxy ranges. Validate at startup; redact secret values from errors. Credentials use mounted files where possible, not checked-in YAML. No live credentials in frontend environment variables.
 
 Use separate runtime and migration database identities. Runtime gets only needed DML and insert-only audit access. DB pool starting limit: 10 connections per app process, adjusted against server capacity and replica count. Configure statement/transaction timeouts and avoid idle-in-transaction sessions. Cache non-sensitive catalogs in process; PostgreSQL remains authoritative for sessions, jobs, permissions, and operations.
 
+## Cache policy
+
+PostgreSQL is the only required durable service. Its job queue is about reliable work execution; caching is about reducing repeated reads. Neither implies the other. Inventory observations stored in PostgreSQL already keep ordinary UI reads off provider APIs. They are durable last-known state with freshness metadata, not an expendable Redis cache.
+
+Use small, disposable in-process caches for reproducible non-sensitive catalog data such as regions and plan descriptions. Initial bounds: five-minute TTL, at most 1,000 entries and 16 MiB per process, eviction at either bound, and coalescing of concurrent loads of the same key. Treat these as tuning targets. Pricing displayed during an action review must be revalidated against the provider when possible or explicitly marked unavailable/stale; a cache never authorizes spend or guarantees a price.
+
+Account-specific cache keys include workspace UUID, connection UUID, API family, scope/region, and the relevant credential/configuration version. Only demonstrably public catalogs may use global keys. Invalidate scoped entries after connection rotation/disabling and configuration changes. Cache neither credentials nor authorization decisions here. The specialized short-lived adapter token lifecycle is governed by the security design, not a generic catalog cache.
+
+PostgreSQL remains authoritative for sessions, memberships/grants, operation state, idempotency, resource reservations, audit, and job leases. Revalidate authorization at each sensitive action and dispatch. Refresh coalescing across processes uses the existing durable sync-job identity/constraints; process-local request coalescing alone is insufficient across replicas. Each replica can rebuild its optional cache after restart without losing work.
+
+**Redis is not part of the baseline.** Consider a shared evictable cache only if measured repeated DB/provider reads or replica duplication remain a bottleneck after indexing, bounded paging, and coalescing. Evidence should identify the workload, hit rate, memory cost, expected latency/throughput gain, invalidation design, and behavior when the cache is unavailable. The owner must authorize the addition through an ADR amendment. Redis would not replace PostgreSQL or become authoritative for operations or permissions; losing the cache must never lose accepted work.
+
 ## Health and lifecycle
 
-The proposed `/healthz` reports process liveness. `/readyz` should require compatible schema, a usable DB pool, required key IDs, and valid identity configuration. Individual provider outages should degrade that connection, not fail whole-app readiness. Liveness should not restart healthy processes merely because a provider is down.
+The planned `/healthz` reports process liveness. `/readyz` should require compatible schema, a usable DB pool, required key IDs, and valid identity configuration. Individual provider outages should degrade that connection, not fail whole-app readiness. Liveness should not restart healthy processes merely because a provider is down.
 
 On SIGTERM, stop accepting new requests and claiming jobs, allow a bounded HTTP drain period, and checkpoint worker state before exit. Worker shutdown must leave durable dispatch markers intact. Use a reverse proxy with suitable request size/time limits and trust forwarded headers only from that proxy.
 
 ## Observability
 
-Proposed observability includes structured startup/shutdown/error logs, per-response request IDs, and request counts/latency/status by route template; DB pool saturation; queue depth/oldest job; operation outcome, unknown count and age; lease expiry; provider latency/error/rate-limit counts; sync lag and stale scope count. Avoid high-cardinality user/resource IDs as metric labels. Logs can use safe opaque correlation IDs.
+Required observability includes structured startup/shutdown/error logs, per-response request IDs, and request counts/latency/status by route template; DB pool saturation; queue depth/oldest job; operation outcome, unknown count and age; lease expiry; provider latency/error/rate-limit counts; sync lag and stale scope count. Avoid high-cardinality user/resource IDs as metric labels. Logs can use safe opaque correlation IDs.
 
 Prometheus metrics are private/admin-only. OpenTelemetry export is opt-in, excludes secrets and raw request bodies, and has explicit deployment-owned destinations. Provider names, request templates, and normalized errors are sufficient for most diagnosis. No hosted telemetry by default.
 

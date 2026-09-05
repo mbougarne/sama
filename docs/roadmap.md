@@ -1,22 +1,16 @@
 # Implementation roadmap
 
-**Current phase: architecture review only.** The later milestones describe a possible delivery sequence, not work to start automatically. Implementation requires an explicit user request after reviewing the architecture.
+**Current phase: architecture stabilization only.** The owner accepted the main ADR direction on 2026-09-05. The later milestones describe the selected delivery sequence, not work to start automatically. Implementation still requires an explicit user request.
 
 **All milestones exclude payment and billing management.** Provisioning may create provider-billed charges, but Sama must never handle payment. Any required checkout, top-up, or billing-account action is completed directly with the provider. This is a fixed product boundary, not a feature deferred to a later release or Pro tier.
 
-## M0 — Architecture review (current)
+## M0 — Architecture stabilization (current)
 
-Review product scope, provider research, component boundaries, separate backend/frontend folder ownership, data/API/security design, operation lifecycle, and deployment tradeoffs. No application code, tests, dependencies, build tooling, or deployment files belong to this phase.
+The core stack, component boundaries, separate backend/frontend ownership, OIDC, encrypted credentials, durable operations, and provider delivery sequence are accepted. This review selects MIT, PostgreSQL with bounded local caching, detailed frontend state ownership, and UUIDv7 entity identifiers. Their status and rationale are in the [decision records](decisions/README.md).
 
-Review questions:
+Remaining preparation is within the chosen design: define the first implementation slice, decide actual release version pins when coding starts, and resolve provider capability uncertainties through the documented qualification process. Do not reopen language/framework/bundler choices as implementation alternatives.
 
-- Does the initial product scope match the intended users and workflows?
-- Is the proposed `backend/` and `frontend/` separation clear and easy to navigate?
-- Are PostgreSQL, OIDC, and the durable-operation model worth their setup cost?
-- Is the provider delivery order appropriate, and which capabilities are essential for the first release?
-- Should release packaging combine independently built artifacts or use separate containers?
-
-Completion means the user has reviewed the design and identified the decisions to keep or revise. It does not automatically authorize coding.
+No application code, tests, dependencies, build tooling, or deployment files belong to this phase. Acceptance criteria below describe future evidence, not checks already run. Architecture acceptance does not automatically authorize coding.
 
 ## M0.1 — Repository scaffolding (future, after implementation is requested)
 
@@ -72,4 +66,4 @@ AWS SQS/SNS configuration inventory and carefully scoped management; broader S3 
 
 ## Current next step
 
-Read and discuss the architecture. Start with product scope, system architecture, and repository structure; then review security, data, operations, and API details. Revise proposals as needed. Do not begin M0.1 or M1 until the user explicitly asks to start implementation.
+Review the stabilization refinements in ADR-003, ADR-008, ADR-011, and ADR-012, alongside the updated conduct policy. Keep the accepted architecture as the baseline. Do not begin M0.1 or M1 until the user explicitly asks to start implementation.

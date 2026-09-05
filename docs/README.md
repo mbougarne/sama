@@ -1,6 +1,6 @@
 # Sama documentation
 
-Status: **draft architecture for review**, prepared on **2026-09-04**. This repository contains documentation only. The Go backend, React frontend, Webpack bundler, separate backend/frontend folders, and exclusion of payment handling are user requirements; the remaining architectural choices are proposals. Implementation starts only when explicitly requested.
+Status: **architecture baseline stabilized on 2026-09-05; documentation only**. The owner accepted the existing ADR decisions and fixed the core stack. Licensing, caching, frontend state, and identifier refinements are recorded with their selection status in [decision records](decisions/README.md). None of this authorizes implementation or claims working software.
 
 | Read | Purpose |
 | -------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -13,9 +13,20 @@ Status: **draft architecture for review**, prepared on **2026-09-04**. This repo
 | [Operation lifecycle](architecture/operations.md) | Durable jobs, retries, ambiguity, reconciliation and failure handling |
 | [Frontend](architecture/frontend.md) | Interaction design, feature boundaries, data fetching, accessibility |
 | [Deployment and reliability](architecture/deployment.md) | Deployment, backups, upgrades, observability and performance |
-| [Architecture decisions](decisions/README.md) | Proposed choices, alternatives, and decisions awaiting review |
+| [Architecture decisions](decisions/README.md) | Accepted direction, selected refinements, rationale, and future evidence |
 | [Roadmap](roadmap.md) | Ordered implementation work and acceptance gates |
-| [Repository structure](architecture/repository.md) | Proposed backend/frontend folders, ownership, and build boundaries |
+| [Repository structure](architecture/repository.md) | Selected backend/frontend folders, ownership, and build boundaries |
+
+## This review's conclusions
+
+| Topic | Direction |
+| --- | --- |
+| Community conduct | Technical scope, specific behavioral feedback, cultural awareness, fixed stack; participation rules do not restrict licensed use |
+| Durable work and cache | PostgreSQL jobs and state; bounded in-process caches initially; no Redis dependency |
+| License | Standard MIT; commercial/proprietary use and resale permitted with notice retention; sandbox guidance outside license terms |
+| Frontend state | TanStack Query, React Router, local React state/reducers, narrow context; no duplicate global server-data store |
+| Identifiers | UUIDv7 entity keys internally and externally; `id` is a UUID field; no default numeric surrogate |
+| Phase | Continue architecture stabilization until implementation is explicitly requested |
 
 ## Reading guide
 

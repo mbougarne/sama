@@ -1,6 +1,6 @@
 # Security architecture
 
-**Proposed security requirements.** This repository contains documentation only. None of the controls below is implemented or empirically validated; they are requirements to review before building a credential-bearing application.
+**Accepted security design, awaiting implementation.** This repository contains documentation only. None of the controls below is implemented or empirically validated; they are requirements to satisfy before operating a credential-bearing application.
 
 ## Trust model
 

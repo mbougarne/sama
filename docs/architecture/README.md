@@ -1,8 +1,8 @@
 # System architecture
 
-## Proposed design
+## Selected design
 
-Build a **Go modular monolith**, a **React + TypeScript SPA compiled by Webpack**, and **PostgreSQL**. Start with one application process serving API and frontend assets; add background workers to the same executable when operations are implemented. API-only and worker-only deployment modes can be introduced when load warrants separate scaling. Keep all Go source and tooling in `backend/` and all React/Webpack source and tooling in `frontend/`. Each has its own dependencies and build boundary. A combined release image is a packaging proposal, not a reason to mix source files. See [repository structure](repository.md).
+Build a **Go modular monolith**, a **React + TypeScript SPA compiled by Webpack**, and **PostgreSQL**. Start with one application process serving API and frontend assets; add background workers to the same executable when operations are implemented. API-only and worker-only deployment modes can be introduced when load warrants separate scaling. Keep all Go source and tooling in `backend/` and all React/Webpack source and tooling in `frontend/`. Each has its own dependencies and build boundary. A combined release image assembles independent build outputs and does not mix source files. See [repository structure](repository.md).
 
 ```mermaid
 flowchart TB
@@ -21,7 +21,7 @@ flowchart TB
   services --> keys[Mounted encryption keyring]
 ```
 
-This diagram describes the proposed runtime topology. No application code is present in this phase. Review the design before choosing an implementation milestone.
+This diagram describes the selected runtime topology. No application code is present; accepted design still requires implementation and empirical acceptance.
 
 ## Why this shape
 
@@ -31,7 +31,7 @@ PostgreSQL holds identities, encrypted connections, inventory, operations, jobs,
 
 ## Backend module boundaries
 
-The following proposed packages belong under `backend/internal/`. Frontend features have their own structure under `frontend/src/`.
+The following planned packages belong under `backend/internal/`. Frontend features have their own structure under `frontend/src/`.
 
 | Module (target package) | Owns | Must not do |
 | ----------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -50,20 +50,25 @@ Do not create empty packages for every planned module. Add them with their first
 
 Dependencies flow from composition root to transport/services to domain contracts. Infrastructure implements those contracts. Adapters cannot import the HTTP layer. Cross-module orchestration belongs in application services, not a growing `utils` directory. Share generic transport/encryption/paging mechanisms; keep provider semantics in their owner.
 
-## Technology choices for review
+## Selected technology and policy baseline
 
-| Area | Choice | Status |
-| --- | --- | --- |
-| Backend | Go, with standard HTTP and structured logging support | Language requested; library choices proposed |
-| Frontend | React + TypeScript, Webpack, frontend-local package management | React/Webpack requested; TypeScript proposed |
-| API | REST JSON, OpenAPI contract, generated frontend types | Proposed |
-| Database | PostgreSQL, `pgx`, explicit migrations; consider `sqlc` for query bindings | Proposed |
-| Authentication | OIDC authorization code + PKCE, server-side opaque sessions | Proposed |
-| Jobs | PostgreSQL durable queue, resource reservations, reconciliation | Proposed |
-| Validation | Domain, HTTP contract, browser, isolation, and crash-recovery checks | Future acceptance strategy |
-| Packaging | Independently built backend and frontend artifacts; optional combined release image | Proposed |
+| Area | Choice |
+| --- | --- |
+| Backend | Go modular monolith, standard HTTP and structured logging |
+| Frontend | React + TypeScript, Webpack, frontend-local package management |
+| Frontend state | TanStack Query for server data, React Router for URL state, React state/reducers/context for UI |
+| API | REST JSON, OpenAPI contract, generated frontend types |
+| Database | PostgreSQL 18, `pgx`, explicit migrations; query code generation where useful |
+| Jobs | PostgreSQL durable queue, resource reservations, reconciliation |
+| Cache | Bounded in-process catalog cache and browser query cache; no Redis initially |
+| Identity | OIDC authorization code + PKCE, opaque server-side sessions |
+| Entity identifiers | UUIDv7 PostgreSQL keys and public API strings; no default numeric mapping |
+| Packaging | Independently built frontend/backend artifacts assembled into one release image |
+| License | MIT with its standard notice condition and warranty/liability disclaimers |
 
-Select supported Go, Node LTS, React, Webpack, and PostgreSQL versions at the start of implementation, then pin them within their owning folders. No toolchain or dependency versions are installed or pinned by this documentation-only repository.
+The core Go, React + TypeScript, Webpack, and PostgreSQL stack is fixed. Pin supported runtime/library versions when implementation begins; maintain security/version updates within the chosen stack. No dependencies are installed in this phase. [Decision records](../decisions/README.md) distinguish the accepted ADRs from refinements selected during stabilization.
+
+See [frontend state](frontend.md#state-management), [identifier policy](data.md#identifier-policy), and [cache policy](deployment.md#cache-policy) for precise ownership, defaults, and limits. PostgreSQL-backed jobs do not eliminate the separate question of caching. The initial workload has not been benchmarked; adding Redis would require measured justification and an explicit architecture amendment.
 
 ## Read and write flows
 

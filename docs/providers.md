@@ -1,6 +1,6 @@
 # Provider research and integration strategy
 
-Research date: **2026-09-04**. This is a documentation-based feasibility assessment, not live account validation. No cloud credentials were used. Product availability, permissions, regional coverage, pagination, and lifecycle behavior must be verified per adapter before it is advertised as supported. All integration scope below is proposed; there is no application catalog or capability API yet.
+Research date: **2026-09-04**. This is a documentation-based feasibility assessment, not live account validation. No cloud credentials were used. Product availability, permissions, regional coverage, pagination, and lifecycle behavior must be verified per adapter before it is advertised as supported. The provider delivery order is accepted; exact capability coverage still requires qualification. There is no application catalog or capability API yet.
 
 ## Verified API surfaces
 
