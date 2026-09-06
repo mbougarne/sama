@@ -31,7 +31,7 @@ cd ..
 python3 scripts/install_hooks.py
 ```
 
-Use an equivalent Node version manager if preferred. Hook execution uses the shell's active Node and Go command. Go follows `backend/go.mod` and may download the required toolchain when `GOTOOLCHAIN=auto`; install it in advance for offline checks. A missing/wrong toolchain is a failing prerequisite, not a skipped check. Fresh clones must opt into the tracked hook using the installer because Git does not install repository hooks automatically.
+Use an equivalent Node version manager if preferred. The hook verifies the exact Node version in the staged `frontend/.nvmrc`. When the shell has another Node active, it automatically selects an already-installed matching nvm toolchain from `$NVM_DIR` or the standard `~/.nvm` location, so committing from a parent directory is safe. It does not install Node; equivalent manager users should activate the pinned version before committing. The hook also verifies the exact pnpm `packageManager` version. Go follows `backend/go.mod` and may download the required toolchain when `GOTOOLCHAIN=auto`; install it in advance for offline checks. A missing/wrong toolchain is a failing prerequisite, not a skipped check. Fresh clones must opt into the tracked hook using the installer because Git does not install repository hooks automatically.
 
 ## Local work
 
@@ -53,6 +53,8 @@ The tracked `.githooks/pre-commit` invokes `scripts/pre_commit.py`. It checks fi
 The index and working files are never autoformatted or restaged. Bad formatting blocks the commit with instructions to format, review, and stage the intended changes. Partial staging is respected: a correct unstaged version cannot hide broken staged code, and an unfinished working edit does not replace the staged candidate being checked.
 
 The hook uses `pnpm install --frozen-lockfile --offline --ignore-scripts --prod=false` for the exported snapshot. It resolves the frontend’s local pnpm store before creating dependencies in the temporary directory, so checks can reuse that store across volumes. Run `pnpm install --frozen-lockfile --ignore-scripts` in `frontend/` first to populate the cache for the lockfile being committed. The hook can take longer than lint alone because it validates both projects from the candidate commit. It rejects staged local records/build outputs, unresolved merges, symlinks and submodules; these are not part of the initial repository layout.
+
+The temporary install is required because the staged snapshot deliberately cannot reuse working-tree `node_modules`; otherwise unstaged dependency state could make a broken commit look valid. The install is offline and uses `--ignore-scripts`. No development server is started: `pnpm run check` runs formatting validation, lint, type checks, component tests and a production bundle.
 
 The installer refuses to replace a configured hooks directory or existing executable default hooks. Integrate those deliberately if present. Existing source index/working-tree changes are not altered by installation. Finalize AI records before committing; exclude ignored `agents/` from editor formatters. Root `.prettierignore` also excludes it.
 

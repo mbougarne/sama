@@ -59,7 +59,7 @@ Lease expiry only grants permission to **inspect/reconcile** a `dispatching` mut
 
 Use a durable reservation keyed by connection/type/scope/native ID so reboot, resize, and delete cannot race within Sama. Multi-resource operations reserve all affected resources in deterministic order or are rejected until that behavior is implemented. Creation uses a durable intent slot and provider-native idempotency/correlation where supported. Resource reservations persist through unknown outcomes; releasing them needs definitive evidence or a separately reviewed owner resolution that records residual risk. No automatic resubmission on release.
 
-The first release uses one active worker scheduler for simple process-local rate budgets. Multiple API replicas are safe with shared DB state; multiple worker replicas require shared provider-scope rate budgeting and crash testing. Lease correctness alone does not enforce upstream rate limits.
+The first release uses one provider-calling process with an active worker scheduler and process-local rate budgets. Extra API replicas may serve DB-backed/local reads, but connection validation and fresh review preparation also call providers and therefore cannot multiply independently under a process-local limit. Multiple provider-calling API or worker processes require shared provider-scope concurrency and cooldown budgets, or routing all provider traffic through one designated scheduler, plus crash/partition tests. Lease correctness alone does not enforce upstream rate limits.
 
 ## Retry classification
 

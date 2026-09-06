@@ -78,6 +78,6 @@ Writes authorize and prepare a review from fresh provider state. Confirmation at
 
 ## Deployment and evolution
 
-Initial self-hosting: TLS proxy + Sama + PostgreSQL on a single host. PostgreSQL is private; app egress is restricted to configured identity/provider destinations. Horizontal app replicas share sessions and durable jobs in PostgreSQL. Start with a single worker process for simple global provider rate limiting; distributed rate budgeting is a prerequisite for multiple worker replicas.
+Initial self-hosting: TLS proxy + one provider-calling Sama process + PostgreSQL on a single host. PostgreSQL is private; app egress is restricted to configured identity/provider destinations. Additional API replicas may share sessions and durable jobs in PostgreSQL, but they are not safe to call providers while concurrency limits and 429 cooldowns are process-local. Multiple provider-calling API or worker processes require a shared provider-scope budget, or all provider calls must be routed through one designated scheduler. DB-backed leases alone do not supply that budget.
 
 Extract a service only after measuring a need for independent ownership, isolation, or scaling. Large object transfers and prolonged console sessions, if added, deserve a separate resource budget and potentially a separate process. Do not introduce Kubernetes, Redis, a service mesh, or Kafka merely to anticipate scale.

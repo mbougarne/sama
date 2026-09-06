@@ -36,6 +36,8 @@ Acceptance or selection describes design, not implementation or production quali
 
 **Future evidence:** Real PostgreSQL concurrency, lease/restart, migration, and restore checks; representative latency and cache-hit/memory measurements. “Enough initially” is the design judgment, not a completed load-test result.
 
+**Clarification (2026-09-06):** Shared database state makes additional API replicas safe for DB-backed/local work, not for provider traffic governed only by process-local concurrency and cooldown state. Multiple provider-calling API or worker processes need one shared provider-scope budget or a designated scheduler for all provider calls. This closes an overbroad scaling claim without adding Redis or changing the selected topology.
+
 ## ADR-004: Capability-based adapters — accepted
 
 **Decision:** Small typed domain ports. Distinguish provider features, adapter implementation, verified connection permissions, Sama grants, and resource-state restrictions. Preserve native features.
@@ -51,6 +53,8 @@ Acceptance or selection describes design, not implementation or production quali
 **Reason:** User identity is independent from provider identity. Durable jobs must work after the browser closes without storing provider credentials in the browser.
 
 **Consequences:** Self-hosters configure an identity provider; a bootstrap guide and disposable identity setup belong to the first implementation milestone. Encryption does not protect a compromised running host from using credentials.
+
+**Clarification (2026-09-06):** Connection tests are non-authoritative previews. Creation and rotation revalidate the exact credential in their own request, derive account/capability metadata server-side, and encrypt only that credential after successful validation. This prevents a validated credential from being swapped before persistence without introducing a durable plaintext secret or a mandatory validation-receipt subsystem.
 
 **Future evidence:** Session/CSRF/isolation, key rotation/restore, log redaction, and revoked-authority checks.
 

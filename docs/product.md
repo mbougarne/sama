@@ -37,7 +37,7 @@ Inventory covers the resource families implemented for each adapter. A missing f
 
 ### Connect an account
 
-An administrator chooses a provider and API family, sees the smallest required credential scope, supplies credentials over HTTPS, and runs a non-mutating validation. Sama shows the account/project identity and verified read capabilities before saving. Unverifiable permission is shown as unknown, never inferred from a successful login. The first inventory sync runs as a durable job with progress and errors. Additional products with different credentials are separate connections.
+An administrator chooses a provider and API family, sees the smallest required credential scope, supplies credentials over HTTPS, and runs a non-mutating validation. Sama shows the account/project identity and verified read capabilities as a preview before saving. Save revalidates the exact credential submitted in that request and derives account identity and capabilities from the provider response; it never trusts preview metadata supplied by the browser. Only that successfully validated credential is encrypted and stored. Unverifiable permission is shown as unknown, never inferred from a successful login. The first inventory sync runs as a durable job with progress and errors. Additional products with different credentials are separate connections.
 
 ### Understand resources
 

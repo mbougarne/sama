@@ -72,7 +72,7 @@ Index ready jobs on `(next_run_at, id)` restricted to claimable states, expired 
 
 ## Transaction boundaries
 
-- Connection creation writes connection metadata, encrypted credential version, audit event, and initial sync job in one transaction after non-mutating validation. Avoid holding a DB transaction open over a provider call.
+- Connection creation validates the exact request credential outside the database transaction, derives account identity/capabilities from that response, then uses the same short-lived in-memory credential to write connection metadata, encrypted credential version, audit event, and initial sync job in one transaction. A prior preview validation is not authoritative, and failed save-time validation writes nothing. Avoid holding a DB transaction open over a provider call. Credential rotation follows the same validate-then-commit boundary.
 - Mutation acceptance validates the stored review, compares hash/versions, consumes it, reserves the resource lock, and inserts operation + job + audit event atomically. A failed audit write fails acceptance.
 - A worker claims work in a short transaction using row locking and a lease token; no network call occurs inside the transaction. Outcome updates require matching lease ownership and legal state transitions.
 - Credential rotation writes a new version and atomically changes the active pointer with an audit event. Revoked versions cannot start new calls. Accepted but unsent operations are revalidated or cancelled; submitted operations reconcile using an authorized credential for the same verified account.

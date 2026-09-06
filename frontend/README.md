@@ -13,7 +13,7 @@ pnpm install --frozen-lockfile --ignore-scripts
 pnpm run dev
 ```
 
-The development server binds to `http://127.0.0.1:3000`. `/api` and `/healthz` proxy to the Go server at `127.0.0.1:8080`. Start the backend separately when using those routes. Webpack's development server is not a production deployment server.
+The development server binds to `http://127.0.0.1:3000`. `/api` and `/health` proxy to the Go server at `127.0.0.1:8080`. Start the backend separately when using those routes. Webpack's development server is not a production deployment server.
 
 ```sh
 pnpm run format       # Explicitly format frontend files

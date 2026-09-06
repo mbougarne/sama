@@ -8,6 +8,8 @@ The initial management release uses a TLS reverse proxy, Sama, and PostgreSQL. B
 
 Mount an encryption keyring and OIDC configuration. Keep PostgreSQL off public networks, expose only the proxy, and run the app as a non-root user with a read-only filesystem. HTTPS and a configured public origin are mandatory for authenticated deployments.
 
+The baseline has one provider-calling Sama process. Additional API processes can serve DB-backed/local requests, but they must not independently validate credentials, prepare provider-backed reviews, run syncs, dispatch mutations, or reconcile under process-local rate limits. Before any of those paths scale horizontally, introduce a shared provider-scope concurrency/cooldown budget or route every provider call through one designated scheduler and verify failure behavior.
+
 ## Configuration design
 
 Target settings: public origin, database URL/file reference, OIDC issuer/client ID/client-secret file, keyring file, worker mode, request/job budgets, retention, provider/action enablement, and trusted proxy ranges. Validate at startup; redact secret values from errors. Credentials use mounted files where possible, not checked-in YAML. No live credentials in frontend environment variables.
@@ -28,7 +30,7 @@ PostgreSQL remains authoritative for sessions, memberships/grants, operation sta
 
 ## Health and lifecycle
 
-The planned `/healthz` reports process liveness. `/readyz` should require compatible schema, a usable DB pool, required key IDs, and valid identity configuration. Individual provider outages should degrade that connection, not fail whole-app readiness. Liveness should not restart healthy processes merely because a provider is down.
+The planned `/health` reports process liveness. `/readyz` should require compatible schema, a usable DB pool, required key IDs, and valid identity configuration. Individual provider outages should degrade that connection, not fail whole-app readiness. Liveness should not restart healthy processes merely because a provider is down.
 
 On SIGTERM, stop accepting new requests and claiming jobs, allow a bounded HTTP drain period, and checkpoint worker state before exit. Worker shutdown must leave durable dispatch markers intact. Use a reverse proxy with suitable request size/time limits and trust forwarded headers only from that proxy.
 

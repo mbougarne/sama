@@ -6,7 +6,7 @@ This document specifies the API contract and adapter boundaries; implementations
 
 When implementation begins, the backend should own the source contract at `backend/api/openapi.yaml`. Generate frontend types into `frontend/src/api/generated/` from that contract. This is a contract-generation dependency, not a runtime import of backend code into the frontend. Changes to the contract should be reviewed alongside the affected feature.
 
-Proposed operational routes are `GET /healthz` for process liveness and `GET /readyz` for readiness against required dependencies. Unknown API routes should return a JSON problem rather than frontend HTML. Metadata and capability endpoints should be introduced with an actual product use case; no placeholder provider directory is required.
+Proposed operational routes are `GET /health` for process liveness and `GET /readyz` for readiness against required dependencies. Unknown API routes should return a JSON problem rather than frontend HTML. Metadata and capability endpoints should be introduced with an actual product use case; no placeholder provider directory is required.
 
 ## Target resource API
 
@@ -17,9 +17,9 @@ All tenant routes are prefixed `/api/v1/workspaces/{workspace_id}` and require s
 | Method and relative path | Purpose and response |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
 | `GET /connections` | Authorized connection metadata; credentials always omitted |
-| `POST /connection-validations` | Bounded, rate-limited non-mutating credential validation; secret body never retained in logs |
-| `POST /connections` | Create encrypted connection; 201 plus initial sync reference |
-| `POST /connections/{id}/credential-rotations` | Replace write-only credentials; audit and revalidation |
+| `POST /connection-validations` | Bounded, rate-limited non-mutating preview; secret body never retained and result never authorizes a later save |
+| `POST /connections` | Revalidate the submitted credential, then create the encrypted connection; 201 plus initial sync reference |
+| `POST /connections/{id}/credential-rotations` | Revalidate and replace the exact write-only credential supplied in this request; audit the version change |
 | `POST /connections/{id}/disable` | Disable future dispatch; accepted provider work remains visible |
 | `GET /connections/{id}/capabilities` | Effective implemented/verified/authorized capabilities and reason codes |
 | `POST /connections/{id}/syncs` | Deduplicated durable refresh; 202 and sync run ID |
@@ -34,6 +34,12 @@ All tenant routes are prefixed `/api/v1/workspaces/{workspace_id}` and require s
 | `GET /audit-events` | Workspace-scoped, permission-filtered activity |
 
 Identity routes live outside this prefix: `/auth/login`, `/auth/callback`, `/auth/logout`, `/api/v1/me`; workspace and membership routes are introduced with identity. Credentials, user tokens, provider response bodies, and unrestricted signed download URLs never appear in general resource DTOs.
+
+### Credential validation and save binding
+
+`POST /connection-validations` is an optional user-interface preview, not proof that a later request contains the same secret. It returns only server-derived safe account identity, capability results, reason codes and verification time. The browser cannot turn that response into authority to save a credential or supply account/capability metadata as truth.
+
+`POST /connections` and credential rotation each validate the exact typed credential carried by that request immediately before persistence. The provider call happens outside the database transaction. On success, the service keeps that same request-owned credential in short-lived memory, derives account identity and verified capabilities only from the provider response, encrypts the credential, then atomically writes the connection or new version with its audit and required work. Validation failure writes nothing. A later optimization may use a short-lived one-use server receipt bound to actor, session, workspace, provider/API family, a secret digest, verified account identity and expiry, but no unbound preview result may replace save-time validation.
 
 ## Shapes and conventions
 

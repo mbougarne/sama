@@ -24,7 +24,7 @@ Acceptance: login/logout/expiry/revocation and last-owner rules; cross-workspace
 
 ## M2 — Secure connections and Hetzner read-only inventory
 
-Depends on M1. Implement keyring/envelope encryption, credential versions/rotation, non-mutating validation, outbound transport protections, Hetzner account binding and server list/get, durable coalesced sync jobs, observation generations, inventory/details UI and freshness indicators.
+Depends on M1. Implement keyring/envelope encryption, credential versions/rotation, non-mutating validation, save-time revalidation of the exact credential being encrypted, outbound transport protections, Hetzner account binding and server list/get, durable coalesced sync jobs, observation generations, inventory/details UI and freshness indicators.
 
 Acceptance: wrong-key/AAD/rotation/restore/redaction tests, failed page walks preserve last good resources, expired token/403/429 coverage, no cross-connection credential use. Opt-in disposable Hetzner read-only acceptance with recorded scope and expected resources. Credentials remain disabled in ordinary fixtures; no mutation endpoints.
 

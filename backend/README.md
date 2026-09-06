@@ -10,7 +10,7 @@ sh scripts/check.sh
 sh scripts/check.sh format
 ```
 
-Run these from `backend/`. The server binds to `127.0.0.1:8080`; set `SAMA_HTTP_ADDR` to override it. `GET /healthz` reports process liveness only, not database/provider readiness. Shutdown handles interrupt/termination signals with a bounded drain period. Logs emit fixed diagnostic codes rather than raw errors, configured addresses, or HTTP diagnostic payloads; private context is deliberately omitted. Codes distinguish address conflicts, invalid addresses, permission errors and shutdown timeouts, with generic fallbacks for other failures. The build command produces ignored `bin/sama`.
+Run these from `backend/`. The server binds to `127.0.0.1:8080`; set `SAMA_HTTP_ADDR` to override it. `GET /health` reports process liveness only, not database/provider readiness. Shutdown handles interrupt/termination signals with a bounded drain period. Logs emit fixed diagnostic codes rather than raw errors, configured addresses, or HTTP diagnostic payloads; private context is deliberately omitted. Codes distinguish address conflicts, invalid addresses, permission errors and shutdown timeouts, with generic fallbacks for other failures. The build command produces ignored `bin/sama`.
 
 `check.sh` checks gofmt, runs `go vet`, race-enabled tests and a build. It does not rewrite source. `format` explicitly applies Go formatting; review and stage those changes yourself.
 
