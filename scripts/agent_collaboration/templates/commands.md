@@ -1,6 +1,0 @@
-# Command inventory
-
-## `REPLACE_COMMAND_OR_TOOL_OPERATION`
-
-- **What:** REPLACE_DESCRIPTION
-- **Why:** REPLACE_PURPOSE

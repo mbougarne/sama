@@ -1,5 +1,0 @@
-#!/bin/sh
-set -eu
-root=$(git rev-parse --show-toplevel)
-cd "$root"
-exec python3 scripts/pre_commit.py
