@@ -9,9 +9,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"sama/backend/internal/httpapi"
+	"sama/backend/internal/platform"
 )
 
 func main() {
@@ -25,17 +25,17 @@ func main() {
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
-	address := os.Getenv("SAMA_HTTP_ADDR")
-	if address == "" {
-		address = "127.0.0.1:8080"
+	config, err := platform.Load()
+	if err != nil {
+		return err
 	}
 	server := &http.Server{
-		Addr:              address,
+		Addr:              config.HTTPAddr,
 		Handler:           httpapi.NewHandler(),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: config.Timeouts.ReadHeader,
+		ReadTimeout:       config.Timeouts.Read,
+		WriteTimeout:      config.Timeouts.Write,
+		IdleTimeout:       config.Timeouts.Idle,
 		ErrorLog:          log.New(serverLogWriter{logger: logger}, "", 0),
 	}
 	errorsCh := make(chan error, 1)
@@ -51,7 +51,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		}
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.Timeouts.Shutdown)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			_ = server.Close()

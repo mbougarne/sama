@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"sama/backend/internal/platform"
 )
 
 func TestServerFailureLogsOnlySafeClassification(t *testing.T) {
@@ -40,6 +42,21 @@ func TestHTTPDiagnosticsDoNotForwardPayload(t *testing.T) {
 	writer := serverLogWriter{logger: slog.New(slog.NewJSONHandler(&output, nil))}
 	log.New(writer, "", 0).Print("panic: fixture-secret\nforged log entry")
 	assertSafeRecord(t, output.String(), "http_server_error")
+}
+
+func TestConfigurationDiagnosticsUseAllowlistedCode(t *testing.T) {
+	_, err := platform.LoadFrom(func(name string) (string, bool) {
+		if name == "SAMA_PUBLIC_ORIGIN" {
+			return "https://user:secret@example.test", true
+		}
+		return "", false
+	}, func(string) ([]byte, error) { return nil, nil })
+	var output bytes.Buffer
+	logServerFailure(slog.New(slog.NewJSONHandler(&output, nil)), err)
+	if strings.Contains(output.String(), "secret") {
+		t.Fatalf("configuration diagnostic leaked secret: %q", output.String())
+	}
+	assertSafeRecord(t, output.String(), "invalid_public_origin")
 }
 
 func assertSafeRecord(t *testing.T, output, code string) {

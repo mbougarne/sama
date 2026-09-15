@@ -6,11 +6,17 @@ import (
 	"log/slog"
 	"net"
 	"syscall"
+
+	"sama/backend/internal/platform"
 )
 
 // Log only allowlisted classifications. Error strings and configuration can
 // contain credentials or attacker-controlled text, including wrapped errors.
 func logServerFailure(logger *slog.Logger, err error) {
+	if code, ok := platform.ConfigurationCode(err); ok {
+		logger.Error("server stopped", "code", code)
+		return
+	}
 	code := "server_failure"
 	var addressError *net.AddrError
 	switch {
