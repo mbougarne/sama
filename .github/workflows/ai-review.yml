@@ -232,7 +232,6 @@ jobs:
             Read .ai-review/prompt.md and the evidence files it names. Perform only the review described there.
             Return only the final Markdown review. Do not wrap it in JSON, modify files, or publish comments.
           claude_args: >-
-            --bare
             --model ${{ needs.configuration.outputs.model }}
             --max-turns 20
             --permission-mode dontAsk
