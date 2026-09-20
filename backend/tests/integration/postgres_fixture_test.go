@@ -76,6 +76,24 @@ func TestExplicitTestConnectionSettingsErrorDoesNotExposeURL(t *testing.T) {
 	}
 }
 
+func TestExplicitTestConnectionSettingsRejectsUnreachableHostPort(t *testing.T) {
+	const databaseName = "sama_test_unreachable"
+	connection := url.URL{
+		Scheme: "postgres",
+		User:   url.User("postgres"),
+		Host:   net.JoinHostPort("127.0.0.1", "0"),
+		Path:   "/" + databaseName,
+	}
+	query := connection.Query()
+	query.Set("sslmode", "disable")
+	connection.RawQuery = query.Encode()
+
+	err := validateExplicitTestConnectionSettings(testDatabase{name: databaseName, url: connection.String()})
+	if err == nil {
+		t.Fatal("unreachable database URL host port was accepted")
+	}
+}
+
 func validateExplicitTestConnectionSettings(database testDatabase) error {
 	parsed, err := url.Parse(database.url)
 	if err != nil {
@@ -84,7 +102,19 @@ func validateExplicitTestConnectionSettings(database testDatabase) error {
 	if parsed.Scheme != "postgres" || parsed.Hostname() != "127.0.0.1" || parsed.Query().Get("sslmode") != "disable" || strings.TrimPrefix(parsed.Path, "/") != database.name {
 		return errors.New("unexpected URL components")
 	}
+	if !fixturePortReachable(parsed.Host, commandLimit) {
+		return errors.New("database URL host port is unreachable")
+	}
 	return nil
+}
+
+func fixturePortReachable(address string, timeout time.Duration) bool {
+	connection, err := net.DialTimeout("tcp", address, timeout)
+	if err != nil {
+		return false
+	}
+	_ = connection.Close()
+	return true
 }
 
 func newPostgresFixture(t *testing.T) *postgresFixture {
@@ -135,12 +165,31 @@ func newPostgresFixture(t *testing.T) *postgresFixture {
 	if err := fixture.waitReady(ctx); err != nil {
 		t.Fatalf("wait for PostgreSQL 18 fixture: %v", err)
 	}
+	if err := fixture.waitHostPort(ctx); err != nil {
+		t.Fatalf("wait for host-side PostgreSQL fixture port: %s", err)
+	}
 	version := fixture.execSQL(t, "postgres", "SHOW server_version_num")
 	versionNumber, err := strconv.Atoi(version)
 	if err != nil || versionNumber < 180000 || versionNumber >= 190000 {
 		t.Fatalf("fixture image %s reported PostgreSQL version number %q", postgresImage, version)
 	}
 	return fixture
+}
+
+func (f *postgresFixture) waitHostPort(ctx context.Context) error {
+	address := net.JoinHostPort("127.0.0.1", f.port)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if fixturePortReachable(address, 250*time.Millisecond) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return errors.New("timed out waiting for the host-side port")
+		case <-ticker.C:
+		}
+	}
 }
 
 func (f *postgresFixture) createDatabase(t *testing.T) testDatabase {
