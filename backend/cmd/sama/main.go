@@ -29,6 +29,13 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if config.Database.URL != "" {
+		pool, err := platform.OpenPool(ctx, config.Database)
+		if err != nil {
+			return err
+		}
+		defer pool.Close()
+	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
 		Handler:           httpapi.NewHandler(),

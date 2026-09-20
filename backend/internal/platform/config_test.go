@@ -32,7 +32,7 @@ func TestDatabaseURLFileAndDirectPrecedence(t *testing.T) {
 		return []byte("postgres://file-user:file-secret@db/sama\n"), nil
 	})
 	if err != nil || config.Database.URL != "postgres://file-user:file-secret@db/sama" {
-		t.Fatalf("file database URL = %q, err = %v", config.Database.URL, err)
+		t.Fatal("file-backed database URL was not loaded")
 	}
 
 	values["SAMA_DATABASE_URL"] = "postgres://direct-user:direct-secret@db/sama"
@@ -41,7 +41,29 @@ func TestDatabaseURLFileAndDirectPrecedence(t *testing.T) {
 		return nil, nil
 	})
 	if err != nil || config.Database.URL != values["SAMA_DATABASE_URL"] {
-		t.Fatalf("direct database URL = %q, err = %v", config.Database.URL, err)
+		t.Fatal("direct database URL did not take precedence")
+	}
+}
+
+func TestMigrationDatabaseURLIsSeparateAndFileBacked(t *testing.T) {
+	values := map[string]string{"SAMA_MIGRATION_DATABASE_URL_FILE": "/run/secrets/migration-url"}
+	config, err := LoadFrom(mapEnv(values), func(path string) ([]byte, error) {
+		if path != "/run/secrets/migration-url" {
+			t.Fatal("unexpected secret file requested")
+		}
+		return []byte("postgres://migrator:secret@db/sama\n"), nil
+	})
+	if err != nil || config.Database.URL != "" || config.Database.MigrationURL != "postgres://migrator:secret@db/sama" {
+		t.Fatal("migration connection settings were not loaded separately")
+	}
+
+	values["SAMA_MIGRATION_DATABASE_URL"] = "postgres://migrator:secret@migration-db/sama"
+	config, err = LoadFrom(mapEnv(values), func(string) ([]byte, error) {
+		t.Fatal("migration URL file should not be read when direct value is set")
+		return nil, nil
+	})
+	if err != nil || config.Database.MigrationURL != values["SAMA_MIGRATION_DATABASE_URL"] {
+		t.Fatal("direct migration URL did not take precedence")
 	}
 }
 
@@ -57,6 +79,7 @@ func TestInvalidConfigurationHasAllowlistedCodeAndNoSecret(t *testing.T) {
 		{"proxy", map[string]string{"SAMA_TRUSTED_PROXY_RANGES": "10.0.0.0/8,broken"}, "invalid_trusted_proxy"},
 		{"timeout", map[string]string{"SAMA_READ_TIMEOUT": "-1s"}, "invalid_timeout"},
 		{"database URL", map[string]string{"SAMA_DATABASE_URL": "postgres://user:password@"}, "invalid_database_url"},
+		{"migration database URL", map[string]string{"SAMA_MIGRATION_DATABASE_URL": "postgres://user:password@"}, "invalid_migration_database_url"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := LoadFrom(mapEnv(tc.values), unexpectedFileRead)

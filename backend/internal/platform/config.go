@@ -38,7 +38,8 @@ type Config struct {
 type DatabaseConfig struct {
 	// URL is kept in memory for the database layer. It is never included in
 	// configuration errors or diagnostics.
-	URL string
+	URL          string
+	MigrationURL string
 }
 
 type TimeoutConfig struct {
@@ -72,13 +73,15 @@ func ConfigurationCode(err error) (string, bool) {
 }
 
 var configurationCodes = map[string]bool{
-	"invalid_http_addr":            true,
-	"invalid_public_origin":        true,
-	"invalid_database_url":         true,
-	"database_url_file_unreadable": true,
-	"invalid_timeout":              true,
-	"invalid_budget":               true,
-	"invalid_trusted_proxy":        true,
+	"invalid_http_addr":                      true,
+	"invalid_public_origin":                  true,
+	"invalid_database_url":                   true,
+	"invalid_migration_database_url":         true,
+	"database_url_file_unreadable":           true,
+	"migration_database_url_file_unreadable": true,
+	"invalid_timeout":                        true,
+	"invalid_budget":                         true,
+	"invalid_trusted_proxy":                  true,
 }
 
 func configError(code string) error { return &ConfigError{code: code} }
@@ -110,6 +113,10 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	migrationDatabaseURL, err := migrationDatabaseURL(lookup, readFile)
+	if err != nil {
+		return Config{}, err
+	}
 
 	timeouts, err := loadTimeouts(lookup)
 	if err != nil {
@@ -127,7 +134,7 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 	return Config{
 		HTTPAddr:       address,
 		PublicOrigin:   origin,
-		Database:       DatabaseConfig{URL: databaseURL},
+		Database:       DatabaseConfig{URL: databaseURL, MigrationURL: migrationDatabaseURL},
 		Timeouts:       timeouts,
 		Budgets:        budgets,
 		TrustedProxies: proxies,
@@ -135,27 +142,39 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 }
 
 func databaseURL(lookup EnvLookup, readFile FileRead) (string, error) {
-	if value, ok := lookup("SAMA_DATABASE_URL"); ok {
+	return databaseURLSetting(lookup, readFile,
+		"SAMA_DATABASE_URL", "SAMA_DATABASE_URL_FILE",
+		"invalid_database_url", "database_url_file_unreadable")
+}
+
+func migrationDatabaseURL(lookup EnvLookup, readFile FileRead) (string, error) {
+	return databaseURLSetting(lookup, readFile,
+		"SAMA_MIGRATION_DATABASE_URL", "SAMA_MIGRATION_DATABASE_URL_FILE",
+		"invalid_migration_database_url", "migration_database_url_file_unreadable")
+}
+
+func databaseURLSetting(lookup EnvLookup, readFile FileRead, directKey, fileKey, invalidCode, fileErrorCode string) (string, error) {
+	if value, ok := lookup(directKey); ok {
 		if !validDatabaseURL(value) {
-			return "", configError("invalid_database_url")
+			return "", configError(invalidCode)
 		}
 		return strings.TrimSpace(value), nil
 	}
-	path, ok := lookup("SAMA_DATABASE_URL_FILE")
+	path, ok := lookup(fileKey)
 	if !ok {
 		return "", nil
 	}
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return "", configError("database_url_file_unreadable")
+		return "", configError(fileErrorCode)
 	}
 	contents, err := readFile(path)
 	if err != nil {
-		return "", configError("database_url_file_unreadable")
+		return "", configError(fileErrorCode)
 	}
 	value := strings.TrimSpace(string(contents))
 	if !validDatabaseURL(value) {
-		return "", configError("invalid_database_url")
+		return "", configError(invalidCode)
 	}
 	return value, nil
 }
