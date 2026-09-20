@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,9 +38,13 @@ type appliedMigration struct {
 }
 
 // ApplyMigrations applies immutable SQL files in version order in one
-// transaction. A checksum mismatch or any failed migration leaves the ledger
-// and schema at their pre-invocation state.
-func ApplyMigrations(ctx context.Context, pool *pgxpool.Pool, source fs.FS) error {
+// transaction. queryTimeout bounds migration operations and SQL-file execution
+// at both the Go context and PostgreSQL statement level. A checksum mismatch or
+// any failed migration leaves the ledger and schema at their pre-invocation state.
+func ApplyMigrations(ctx context.Context, pool *pgxpool.Pool, source fs.FS, queryTimeout time.Duration) error {
+	if queryTimeout < minMigrationQueryTimeout || queryTimeout > maxMigrationQueryTimeout {
+		return errors.New("migration query timeout is invalid")
+	}
 	files, err := loadMigrationFiles(source)
 	if err != nil {
 		return errors.New("migration files are invalid")
@@ -60,17 +66,23 @@ func ApplyMigrations(ctx context.Context, pool *pgxpool.Pool, source fs.FS) erro
 		defer cancelRollback()
 		_ = tx.Rollback(rollbackCtx)
 	}()
+	if err := migrationExec(ctx, tx, queryTimeout,
+		"SELECT set_config('statement_timeout', $1, true)",
+		strconv.FormatInt(queryTimeout.Milliseconds(), 10),
+	); err != nil {
+		return errors.New("migration query timeout could not be set")
+	}
 
-	if err := migrationExec(ctx, tx, "SELECT pg_advisory_xact_lock($1)", int64(1396789825)); err != nil {
+	if err := migrationExec(ctx, tx, queryTimeout, "SELECT pg_advisory_xact_lock($1)", int64(1396789825)); err != nil {
 		return errors.New("migration lock could not be acquired")
 	}
-	if err := migrationExec(ctx, tx, migrationLedgerDDL); err != nil {
+	if err := migrationExec(ctx, tx, queryTimeout, migrationLedgerDDL); err != nil {
 		return errors.New("migration ledger could not be initialized")
 	}
-	if err := validateMigrationLedger(ctx, tx); err != nil {
+	if err := validateMigrationLedger(ctx, tx, queryTimeout); err != nil {
 		return errors.New("migration ledger schema is incompatible")
 	}
-	applied, err := readAppliedMigrations(ctx, tx)
+	applied, err := readAppliedMigrations(ctx, tx, queryTimeout)
 	if err != nil {
 		return errors.New("migration ledger could not be read")
 	}
@@ -92,17 +104,17 @@ func ApplyMigrations(ctx context.Context, pool *pgxpool.Pool, source fs.FS) erro
 		if _, ok := applied[file.version]; ok {
 			continue
 		}
-		if err := migrationSQL(ctx, tx, string(file.contents)); err != nil {
+		if err := migrationSQL(ctx, tx, queryTimeout, string(file.contents)); err != nil {
 			return errors.New("migration SQL failed")
 		}
-		if err := migrationExec(ctx, tx,
+		if err := migrationExec(ctx, tx, queryTimeout,
 			"INSERT INTO public.sama_schema_migrations (version, migration_name, checksum) VALUES ($1, $2, $3)",
 			file.version, file.name, file.checksum,
 		); err != nil {
 			return errors.New("migration ledger update failed")
 		}
 	}
-	commitCtx, cancelCommit := context.WithTimeout(ctx, databaseQueryTimeout)
+	commitCtx, cancelCommit := context.WithTimeout(ctx, queryTimeout)
 	err = tx.Commit(commitCtx)
 	cancelCommit()
 	if err != nil {
@@ -143,22 +155,22 @@ func loadMigrationFiles(source fs.FS) ([]migrationFile, error) {
 	return files, nil
 }
 
-func migrationExec(ctx context.Context, tx pgx.Tx, query string, args ...any) error {
-	queryCtx, cancel := context.WithTimeout(ctx, databaseQueryTimeout)
+func migrationExec(ctx context.Context, tx pgx.Tx, queryTimeout time.Duration, query string, args ...any) error {
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	_, err := tx.Exec(queryCtx, query, args...)
 	return err
 }
 
-func migrationSQL(ctx context.Context, tx pgx.Tx, sql string) error {
-	queryCtx, cancel := context.WithTimeout(ctx, databaseQueryTimeout)
+func migrationSQL(ctx context.Context, tx pgx.Tx, queryTimeout time.Duration, sql string) error {
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	_, err := tx.Conn().PgConn().Exec(queryCtx, sql).ReadAll()
 	return err
 }
 
-func validateMigrationLedger(ctx context.Context, tx pgx.Tx) error {
-	queryCtx, cancel := context.WithTimeout(ctx, databaseQueryTimeout)
+func validateMigrationLedger(ctx context.Context, tx pgx.Tx, queryTimeout time.Duration) error {
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	var compatible bool
 	err := tx.QueryRow(queryCtx, `SELECT
@@ -194,8 +206,8 @@ func validateMigrationLedger(ctx context.Context, tx pgx.Tx) error {
 	return nil
 }
 
-func readAppliedMigrations(ctx context.Context, tx pgx.Tx) (map[string]appliedMigration, error) {
-	queryCtx, cancel := context.WithTimeout(ctx, databaseQueryTimeout)
+func readAppliedMigrations(ctx context.Context, tx pgx.Tx, queryTimeout time.Duration) (map[string]appliedMigration, error) {
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	rows, err := tx.Query(queryCtx, "SELECT version, migration_name, checksum FROM public.sama_schema_migrations ORDER BY version")
 	if err != nil {

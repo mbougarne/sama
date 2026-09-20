@@ -34,5 +34,5 @@ func migrate(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
-	return platform.ApplyMigrations(ctx, pool, migrations.Files)
+	return platform.ApplyMigrations(ctx, pool, migrations.Files, config.Timeouts.MigrationQuery)
 }

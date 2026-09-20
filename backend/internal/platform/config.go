@@ -12,13 +12,16 @@ import (
 )
 
 const (
-	defaultHTTPAddr       = "127.0.0.1:8080"
-	defaultPublicOrigin   = "http://127.0.0.1:8080"
-	defaultWorkerCount    = 4
-	defaultProviderBudget = 2
+	defaultHTTPAddr              = "127.0.0.1:8080"
+	defaultPublicOrigin          = "http://127.0.0.1:8080"
+	defaultWorkerCount           = 4
+	defaultProviderBudget        = 2
+	defaultMigrationQueryTimeout = 30 * time.Minute
 
 	minTimeout                       = time.Millisecond
 	maxTimeout                       = 10 * time.Minute
+	minMigrationQueryTimeout         = time.Second
+	maxMigrationQueryTimeout         = 24 * time.Hour
 	minWorkers                       = 1
 	maxWorkers                       = 32
 	minProviderRequestsPerConnection = 1
@@ -43,11 +46,12 @@ type DatabaseConfig struct {
 }
 
 type TimeoutConfig struct {
-	ReadHeader time.Duration
-	Read       time.Duration
-	Write      time.Duration
-	Idle       time.Duration
-	Shutdown   time.Duration
+	ReadHeader     time.Duration
+	Read           time.Duration
+	Write          time.Duration
+	Idle           time.Duration
+	Shutdown       time.Duration
+	MigrationQuery time.Duration
 }
 
 type BudgetConfig struct {
@@ -258,16 +262,30 @@ func loadTimeouts(lookup EnvLookup) (TimeoutConfig, error) {
 	if err != nil {
 		return TimeoutConfig{}, err
 	}
-	return TimeoutConfig{ReadHeader: readHeader, Read: read, Write: write, Idle: idle, Shutdown: shutdown}, nil
+	migrationQuery, err := boundedDurationSetting(
+		lookup, "SAMA_MIGRATION_QUERY_TIMEOUT", defaultMigrationQueryTimeout,
+		minMigrationQueryTimeout, maxMigrationQueryTimeout,
+	)
+	if err != nil {
+		return TimeoutConfig{}, err
+	}
+	return TimeoutConfig{
+		ReadHeader: readHeader, Read: read, Write: write, Idle: idle,
+		Shutdown: shutdown, MigrationQuery: migrationQuery,
+	}, nil
 }
 
 func durationSetting(lookup EnvLookup, name string, fallback time.Duration) (time.Duration, error) {
+	return boundedDurationSetting(lookup, name, fallback, minTimeout, maxTimeout)
+}
+
+func boundedDurationSetting(lookup EnvLookup, name string, fallback, minimum, maximum time.Duration) (time.Duration, error) {
 	value, ok := lookup(name)
 	if !ok {
 		return fallback, nil
 	}
 	duration, err := time.ParseDuration(strings.TrimSpace(value))
-	if err != nil || duration < minTimeout || duration > maxTimeout {
+	if err != nil || duration < minimum || duration > maximum {
 		return 0, configError("invalid_timeout")
 	}
 	return duration, nil

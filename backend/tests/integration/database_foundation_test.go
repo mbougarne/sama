@@ -26,6 +26,8 @@ import (
 	"sama/backend/migrations"
 )
 
+const integrationMigrationQueryTimeout = 30 * time.Minute
+
 func TestDatabasePoolBoundsCancellationRollbackAndClose(t *testing.T) {
 	fixture := newPostgresFixture(t)
 	database := fixture.createDatabase(t)
@@ -96,10 +98,10 @@ func TestForwardMigrationsAreChecksummedAndAtomic(t *testing.T) {
 	}
 	defer pool.Close()
 
-	if err := platform.ApplyMigrations(context.Background(), pool, migrations.Files); err != nil {
+	if err := platform.ApplyMigrations(context.Background(), pool, migrations.Files, integrationMigrationQueryTimeout); err != nil {
 		t.Fatal("initial forward migrations failed")
 	}
-	if err := platform.ApplyMigrations(context.Background(), pool, migrations.Files); err != nil {
+	if err := platform.ApplyMigrations(context.Background(), pool, migrations.Files, integrationMigrationQueryTimeout); err != nil {
 		t.Fatal("unchanged forward migrations were not idempotent")
 	}
 	changed := fstest.MapFS{}
@@ -117,7 +119,7 @@ func TestForwardMigrationsAreChecksummedAndAtomic(t *testing.T) {
 		}
 		changed[entry.Name()] = &fstest.MapFile{Data: contents, Mode: 0o444}
 	}
-	if err := platform.ApplyMigrations(context.Background(), pool, changed); err == nil {
+	if err := platform.ApplyMigrations(context.Background(), pool, changed, integrationMigrationQueryTimeout); err == nil {
 		t.Fatal("changed applied migration checksum was accepted")
 	}
 
@@ -131,7 +133,7 @@ func TestForwardMigrationsAreChecksummedAndAtomic(t *testing.T) {
 		"000001_marker.sql":  &fstest.MapFile{Data: []byte("CREATE TABLE public.migration_marker (id integer PRIMARY KEY);"), Mode: 0o444},
 		"000002_failure.sql": &fstest.MapFile{Data: []byte("CREATE TABLE public.migration_failure ("), Mode: 0o444},
 	}
-	if err := platform.ApplyMigrations(context.Background(), failedPool, failing); err == nil {
+	if err := platform.ApplyMigrations(context.Background(), failedPool, failing, integrationMigrationQueryTimeout); err == nil {
 		t.Fatal("invalid migration unexpectedly succeeded")
 	}
 	var ledger, marker string
@@ -152,8 +154,33 @@ func TestForwardMigrationsAreChecksummedAndAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal("could not create incompatible ledger fixture")
 	}
-	if err := platform.ApplyMigrations(context.Background(), brokenPool, migrations.Files); err == nil {
+	if err := platform.ApplyMigrations(context.Background(), brokenPool, migrations.Files, integrationMigrationQueryTimeout); err == nil {
 		t.Fatal("incompatible migration ledger was accepted")
+	}
+}
+
+func TestMigrationCanExceedRuntimeQueryTimeout(t *testing.T) {
+	fixture := newPostgresFixture(t)
+	database := fixture.createDatabase(t)
+	pool, err := platform.OpenPool(context.Background(), platform.DatabaseConfig{URL: database.url})
+	if err != nil {
+		t.Fatal("could not open migration timeout test database")
+	}
+	defer pool.Close()
+
+	const migrationTimeout = 15 * time.Second
+	source := fstest.MapFS{
+		"000001_slow_migration.sql": &fstest.MapFile{
+			Data: []byte("SELECT pg_sleep(6); CREATE TABLE public.slow_migration_completed (id integer PRIMARY KEY);"),
+			Mode: 0o444,
+		},
+	}
+	started := time.Now()
+	if err := platform.ApplyMigrations(context.Background(), pool, source, migrationTimeout); err != nil {
+		t.Fatal("migration exceeding the runtime query timeout did not complete")
+	}
+	if time.Since(started) < 5*time.Second {
+		t.Fatal("migration timeout probe did not exceed the runtime query bound")
 	}
 }
 
@@ -187,7 +214,7 @@ func TestDistinctDatabaseRolesAndTransactionalAudit(t *testing.T) {
 		t.Fatal("migration identity could not connect")
 	}
 	defer migrationPool.Close()
-	if err := platform.ApplyMigrations(context.Background(), migrationPool, migrations.Files); err != nil {
+	if err := platform.ApplyMigrations(context.Background(), migrationPool, migrations.Files, integrationMigrationQueryTimeout); err != nil {
 		t.Fatal("migration identity could not apply the isolated schema")
 	}
 	probeMigration := make(fstest.MapFS)
@@ -203,7 +230,7 @@ func TestDistinctDatabaseRolesAndTransactionalAudit(t *testing.T) {
 		probeMigration[entry.Name()] = &fstest.MapFile{Data: contents, Mode: 0o444}
 	}
 	probeMigration["000002_probe.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE public.migration_identity_probe (id integer PRIMARY KEY)"), Mode: 0o444}
-	if err := platform.ApplyMigrations(context.Background(), migrationPool, probeMigration); err != nil {
+	if err := platform.ApplyMigrations(context.Background(), migrationPool, probeMigration, integrationMigrationQueryTimeout); err != nil {
 		t.Fatal("migration identity could not apply an isolated fixture migration")
 	}
 
