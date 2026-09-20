@@ -12,7 +12,9 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run build",
+    "api:generate": "openapi-typescript ../backend/api/openapi.yaml -o src/api/generated/openapi.ts && prettier --write src/api/generated/openapi.ts",
+    "api:check": "node scripts/check-api-generated.mjs",
+    "check": "pnpm run format:check && pnpm run api:check && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run build",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
@@ -46,6 +48,7 @@
     "jest": "30.5.1",
     "jest-environment-jsdom": "30.5.1",
     "mini-css-extract-plugin": "2.10.2",
+    "openapi-typescript": "7.13.0",
     "prettier": "3.9.6",
     "ts-loader": "9.6.2",
     "typescript": "6.0.3",

@@ -18,7 +18,8 @@ func TestLoadDefaults(t *testing.T) {
 	if config.Database.URL != "" || config.Budgets.WorkerCount != 4 || config.Budgets.ProviderRequestsPerConnection != 2 {
 		t.Fatalf("unexpected database or budget defaults: %+v", config)
 	}
-	if config.Timeouts.Read != 10*time.Second || config.Timeouts.Shutdown != 10*time.Second || len(config.TrustedProxies) != 0 {
+	if config.Timeouts.Read != 10*time.Second || config.Timeouts.Shutdown != 10*time.Second ||
+		config.Timeouts.MigrationQuery != defaultMigrationQueryTimeout || len(config.TrustedProxies) != 0 {
 		t.Fatalf("unexpected timeout or proxy defaults: %+v", config)
 	}
 }
@@ -32,7 +33,7 @@ func TestDatabaseURLFileAndDirectPrecedence(t *testing.T) {
 		return []byte("postgres://file-user:file-secret@db/sama\n"), nil
 	})
 	if err != nil || config.Database.URL != "postgres://file-user:file-secret@db/sama" {
-		t.Fatalf("file database URL = %q, err = %v", config.Database.URL, err)
+		t.Fatal("file-backed database URL was not loaded")
 	}
 
 	values["SAMA_DATABASE_URL"] = "postgres://direct-user:direct-secret@db/sama"
@@ -41,7 +42,29 @@ func TestDatabaseURLFileAndDirectPrecedence(t *testing.T) {
 		return nil, nil
 	})
 	if err != nil || config.Database.URL != values["SAMA_DATABASE_URL"] {
-		t.Fatalf("direct database URL = %q, err = %v", config.Database.URL, err)
+		t.Fatal("direct database URL did not take precedence")
+	}
+}
+
+func TestMigrationDatabaseURLIsSeparateAndFileBacked(t *testing.T) {
+	values := map[string]string{"SAMA_MIGRATION_DATABASE_URL_FILE": "/run/secrets/migration-url"}
+	config, err := LoadFrom(mapEnv(values), func(path string) ([]byte, error) {
+		if path != "/run/secrets/migration-url" {
+			t.Fatal("unexpected secret file requested")
+		}
+		return []byte("postgres://migrator:secret@db/sama\n"), nil
+	})
+	if err != nil || config.Database.URL != "" || config.Database.MigrationURL != "postgres://migrator:secret@db/sama" {
+		t.Fatal("migration connection settings were not loaded separately")
+	}
+
+	values["SAMA_MIGRATION_DATABASE_URL"] = "postgres://migrator:secret@migration-db/sama"
+	config, err = LoadFrom(mapEnv(values), func(string) ([]byte, error) {
+		t.Fatal("migration URL file should not be read when direct value is set")
+		return nil, nil
+	})
+	if err != nil || config.Database.MigrationURL != values["SAMA_MIGRATION_DATABASE_URL"] {
+		t.Fatal("direct migration URL did not take precedence")
 	}
 }
 
@@ -56,7 +79,10 @@ func TestInvalidConfigurationHasAllowlistedCodeAndNoSecret(t *testing.T) {
 		{"budget", map[string]string{"SAMA_WORKER_COUNT": "0"}, "invalid_budget"},
 		{"proxy", map[string]string{"SAMA_TRUSTED_PROXY_RANGES": "10.0.0.0/8,broken"}, "invalid_trusted_proxy"},
 		{"timeout", map[string]string{"SAMA_READ_TIMEOUT": "-1s"}, "invalid_timeout"},
+		{"migration query timeout too short", map[string]string{"SAMA_MIGRATION_QUERY_TIMEOUT": "500ms"}, "invalid_timeout"},
+		{"migration query timeout too long", map[string]string{"SAMA_MIGRATION_QUERY_TIMEOUT": "24h1m"}, "invalid_timeout"},
 		{"database URL", map[string]string{"SAMA_DATABASE_URL": "postgres://user:password@"}, "invalid_database_url"},
+		{"migration database URL", map[string]string{"SAMA_MIGRATION_DATABASE_URL": "postgres://user:password@"}, "invalid_migration_database_url"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := LoadFrom(mapEnv(tc.values), unexpectedFileRead)
@@ -77,6 +103,7 @@ func TestLoadParsesTypedSettings(t *testing.T) {
 		"SAMA_PUBLIC_ORIGIN":                    "https://console.example.test:8443/",
 		"SAMA_READ_TIMEOUT":                     "3s",
 		"SAMA_SHUTDOWN_TIMEOUT":                 "45s",
+		"SAMA_MIGRATION_QUERY_TIMEOUT":          "17m",
 		"SAMA_WORKER_COUNT":                     "8",
 		"SAMA_PROVIDER_REQUESTS_PER_CONNECTION": "4",
 		"SAMA_TRUSTED_PROXY_RANGES":             "10.0.0.0/8, 2001:db8::/32",
@@ -88,7 +115,9 @@ func TestLoadParsesTypedSettings(t *testing.T) {
 	if config.HTTPAddr != values["SAMA_HTTP_ADDR"] || config.PublicOrigin.String() != "https://console.example.test:8443" {
 		t.Fatalf("unexpected address/origin: %+v", config)
 	}
-	if config.Timeouts.Read != 3*time.Second || config.Timeouts.Shutdown != 45*time.Second || config.Budgets.WorkerCount != 8 || config.Budgets.ProviderRequestsPerConnection != 4 {
+	if config.Timeouts.Read != 3*time.Second || config.Timeouts.Shutdown != 45*time.Second ||
+		config.Timeouts.MigrationQuery != 17*time.Minute || config.Budgets.WorkerCount != 8 ||
+		config.Budgets.ProviderRequestsPerConnection != 4 {
 		t.Fatalf("unexpected typed settings: %+v", config)
 	}
 	wantProxies := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("2001:db8::/32")}

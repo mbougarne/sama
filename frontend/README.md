@@ -17,12 +17,16 @@ The development server binds to `http://127.0.0.1:3000`. `/api` and `/health` pr
 
 ```sh
 pnpm run format       # Explicitly format frontend files
+pnpm run api:generate # Regenerate API types from ../backend/api/openapi.yaml
+pnpm run api:check    # Verify checked-in API types match the source contract
 pnpm test             # Jest component tests, once
 pnpm run test:watch   # Jest during development
-pnpm run check        # Formatting, ESLint, TypeScript, Jest and production build
+pnpm run check        # Formatting, API drift, ESLint, TypeScript, Jest and production build
 pnpm run build        # Production assets in ignored dist/
 ```
 
 Formatting never targets the repository's local `agents/` records. Dependencies and the lockfile belong here; there is no root package workspace. Direct package versions are exact, and `pnpm install --frozen-lockfile` installs the lockfile. See [Contributing](../CONTRIBUTING.md#pre-commit) for commit checks.
+
+The backend owns the source contract at `../backend/api/openapi.yaml`. Generated types are checked in under `src/api/generated/`; edit the OpenAPI document, run `pnpm run api:generate`, and include both source and generated output in the same change. CI runs the non-mutating `api:check` drift comparison.
 
 Jest runs `tests/**/*.test.ts(x)` in jsdom with React Testing Library and user-event. Tests use Jest's ES-module mode to load React Router's ESM distribution. The test commands include Node's required `--experimental-vm-modules` flag, which emits an experimental-feature warning. No external Watchman service is required. Babel strips TypeScript while preserving ES modules; `pnpm run typecheck` separately checks application and test types. Webpack owns the production build. Component tests cover navigation and keyboard entry; jsdom tests do not substitute for browser layout or accessibility review.

@@ -1,0 +1,134 @@
+openapi: 3.1.1
+info:
+  title: Sama HTTP contract
+  version: 0.0.0
+  description: >-
+    This source contract documents only the implemented liveness route and
+    shared HTTP problem envelope. Future entity identifiers use canonical
+    lowercase hyphenated UUIDv7 strings; request_id is a separate bounded
+    correlation value and is not an entity identifier or secret.
+servers:
+  - url: /
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Report process liveness
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The HTTP process is live; dependency readiness is not implied.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestId'
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        default:
+          $ref: '#/components/responses/Problem'
+components:
+  parameters:
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: Invalid or overlong values are replaced with a generated identifier.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[A-Za-z0-9._-]+$'
+  headers:
+    RequestId:
+      description: Bounded request correlation identifier.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[A-Za-z0-9._-]+$'
+  responses:
+    Problem:
+      description: Stable HTTP error envelope. Unknown routes do not imply domain operations.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFoundProblem:
+      description: An unimplemented or unknown route; status 404.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    MethodNotAllowedProblem:
+      description: A known route called with an unsupported method; status 405.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestId'
+        Cache-Control:
+          schema:
+            type: string
+            const: no-store
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          const: ok
+    Problem:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - title
+        - status
+        - code
+        - request_id
+      properties:
+        type:
+          type: string
+          const: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          enum:
+            - 404
+            - 405
+        code:
+          type: string
+          enum:
+            - not_found
+            - method_not_allowed
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9._-]+$'
