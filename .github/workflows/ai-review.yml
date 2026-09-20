@@ -60,11 +60,17 @@ jobs:
       issues: read
       pull-requests: read
     outputs:
-      anthropic_output: ${{ steps.anthropic.outputs.structured_output }}
-      anthropic_conclusion: ${{ steps.anthropic.outputs.conclusion }}
+      anthropic_review_b64: ${{ steps.extract.outputs.review_b64 }}
       base_sha: ${{ steps.prepare.outputs.base_sha }}
       head_sha: ${{ steps.prepare.outputs.head_sha }}
     steps:
+      - name: Check out the trusted PR base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Check out the exact PR head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -169,7 +175,6 @@ jobs:
             const checkRuns = await github.paginate(
               github.rest.checks.listForRef,
               { owner, repo, ref, per_page: 100, filter: 'latest' },
-              (response) => response.data.check_runs,
             );
             const checks = checkRuns
               .filter((check) => !excluded.has(check.name))
@@ -225,16 +230,72 @@ jobs:
           include_fix_links: 'false'
           prompt: |
             Read .ai-review/prompt.md and the evidence files it names. Perform only the review described there.
-            Return the final Markdown review in the review_markdown JSON field. Do not modify files or publish comments.
+            Return only the final Markdown review. Do not wrap it in JSON, modify files, or publish comments.
           claude_args: >-
-            --bare
             --model ${{ needs.configuration.outputs.model }}
             --max-turns 20
             --permission-mode dontAsk
+            --add-dir source
             --allowedTools Read,Glob,Grep
             --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task
             --no-session-persistence
-            --json-schema '{"type":"object","properties":{"review_markdown":{"type":"string"}},"required":["review_markdown"],"additionalProperties":false}'
+
+      - name: Extract the successful Anthropic review
+        id: extract
+        env:
+          EXECUTION_FILE: ${{ steps.anthropic.outputs.execution_file }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const executionFile = process.env.EXECUTION_FILE;
+          const runnerTemp = process.env.RUNNER_TEMP;
+          if (!executionFile || !runnerTemp) {
+            throw new Error('Anthropic did not provide its execution log path.');
+          }
+
+          const trustedRoot = fs.realpathSync(runnerTemp);
+          const resolvedFile = fs.realpathSync(executionFile);
+          if (resolvedFile !== trustedRoot && !resolvedFile.startsWith(`${trustedRoot}${path.sep}`)) {
+            throw new Error('Anthropic execution log resolved outside RUNNER_TEMP.');
+          }
+
+          const messages = JSON.parse(fs.readFileSync(resolvedFile, 'utf8'));
+          if (!Array.isArray(messages)) {
+            throw new Error('Anthropic execution log is not an array.');
+          }
+
+          let review;
+          for (let index = messages.length - 1; index >= 0; index -= 1) {
+            const message = messages[index];
+            if (
+              message?.type === 'result' &&
+              message.subtype === 'success' &&
+              message.is_error !== true &&
+              typeof message.result === 'string'
+            ) {
+              review = message.result;
+              break;
+            }
+          }
+          if (review === undefined) {
+            throw new Error('Anthropic execution log has no successful text result.');
+          }
+          if (review.trim() === '') {
+            throw new Error('Anthropic returned an empty review.');
+          }
+          if (review.includes('\0')) {
+            throw new Error('Anthropic returned a NUL byte.');
+          }
+          if (Buffer.byteLength(review, 'utf8') > 58000) {
+            throw new Error('The Anthropic review exceeds the 58,000-byte transfer limit.');
+          }
+
+          const encoded = Buffer.from(review, 'utf8').toString('base64');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `review_b64=${encoded}\n`);
+          NODE
 
   normalize:
     name: Normalize review output
@@ -249,17 +310,17 @@ jobs:
       - name: Validate and encode Anthropic output
         id: normalize
         env:
-          ANTHROPIC_OUTPUT: ${{ needs.analyze.outputs.anthropic_output }}
-          ANTHROPIC_CONCLUSION: ${{ needs.analyze.outputs.anthropic_conclusion }}
+          ANTHROPIC_REVIEW_B64: ${{ needs.analyze.outputs.anthropic_review_b64 }}
         shell: bash
         run: |
           node <<'NODE'
           const fs = require('fs');
-          if (process.env.ANTHROPIC_CONCLUSION !== 'success') {
-            throw new Error('Anthropic review did not finish successfully.');
+          const encodedInput = process.env.ANTHROPIC_REVIEW_B64 || '';
+          const decoded = Buffer.from(encodedInput, 'base64');
+          if (!encodedInput || decoded.toString('base64') !== encodedInput) {
+            throw new Error('Anthropic review transfer is not valid base64.');
           }
-          const parsed = JSON.parse(process.env.ANTHROPIC_OUTPUT || '');
-          let review = parsed.review_markdown;
+          let review = decoded.toString('utf8');
 
           if (typeof review !== 'string' || review.trim() === '') {
             throw new Error('Anthropic returned an empty review.');
