@@ -28,6 +28,17 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestHealthSupportsHead(t *testing.T) {
+	response := httptest.NewRecorder()
+	NewHandler().ServeHTTP(response, httptest.NewRequest(http.MethodHead, "/health", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("HEAD /health status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if response.Header().Get("Content-Type") != "application/json" || response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("unexpected HEAD health headers: %v", response.Header())
+	}
+}
+
 func TestRouteBoundaries(t *testing.T) {
 	for _, tc := range []struct {
 		method string

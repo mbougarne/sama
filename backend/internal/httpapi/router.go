@@ -32,7 +32,7 @@ func NewHandler() http.Handler {
 
 func route(response http.ResponseWriter, request *http.Request) {
 	if request.URL.Path == "/health" {
-		if request.Method != http.MethodGet {
+		if request.Method != http.MethodGet && request.Method != http.MethodHead {
 			writeProblem(response, request, http.StatusMethodNotAllowed, "method_not_allowed", "Method Not Allowed")
 			return
 		}
