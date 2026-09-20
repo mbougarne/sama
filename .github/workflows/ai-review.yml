@@ -169,7 +169,6 @@ jobs:
             const checkRuns = await github.paginate(
               github.rest.checks.listForRef,
               { owner, repo, ref, per_page: 100, filter: 'latest' },
-              (response) => response.data.check_runs,
             );
             const checks = checkRuns
               .filter((check) => !excluded.has(check.name))
