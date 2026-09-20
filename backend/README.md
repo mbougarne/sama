@@ -14,4 +14,16 @@ Run these from `backend/`. Configuration is loaded once at startup. The server b
 
 `check.sh` checks gofmt, runs `go vet`, race-enabled tests and a build. It does not rewrite source. `format` explicitly applies Go formatting; review and stage those changes yourself.
 
+## Disposable PostgreSQL integration fixture
+
+Run the opt-in integration fixture from `backend/` with:
+
+```sh
+go test -tags=integration ./tests/integration
+```
+
+The test requires the Docker CLI and a running local Docker daemon. It starts the official `postgres:18` image automatically, binding a dynamically assigned port only on `127.0.0.1`; no existing host database or user data is used. The fixture verifies the server is PostgreSQL 18, creates uniquely named `sama_test_…` databases, and exposes each as a `postgres://postgres@127.0.0.1:<port>/<database>?sslmode=disable` URL for integration tests. The container uses trust authentication only inside this disposable, loopback-bound fixture and contains no production credentials. Docker pulls `postgres:18` if it is not already cached.
+
+The fixture removes its generated container and anonymous data volume through test cleanup, and its integration test verifies removal. Missing Docker or a stopped daemon is a test failure, not a skipped test. Start the local Docker daemon before running the command; no manual database creation or cleanup is needed.
+
 The local module path is `sama/backend` until the real hosting/module identity is selected. No GitHub owner is invented. All future Go tooling, database migrations and backend tests stay in this directory. Create additional modules with their first feature; see the [architecture](../docs/architecture/README.md).

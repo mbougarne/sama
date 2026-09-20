@@ -38,6 +38,7 @@ Use an equivalent Node version manager if preferred. The hook verifies the exact
 | Task | Command from repository root |
 | --- | --- |
 | Backend checks | `sh backend/scripts/check.sh` |
+| PostgreSQL integration fixture | `(cd backend && go test -tags=integration ./tests/integration)` |
 | Backend formatting | `sh backend/scripts/check.sh format` |
 | Backoffice checks | `pnpm --dir frontend run check` |
 | Backoffice formatting | `pnpm --dir frontend run format` |
