@@ -68,11 +68,12 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 401 | 400 | 404 | 405 | 429 | 503;
+      status: 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'not_found'
         | 'method_not_allowed'
+        | 'permission_denied'
         | 'unauthenticated'
         | 'invalid_request'
         | 'rate_limited'

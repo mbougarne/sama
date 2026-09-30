@@ -153,6 +153,7 @@ components:
         status:
           type: integer
           enum:
+            - 403
             - 401
             - 400
             - 404
@@ -164,6 +165,7 @@ components:
           enum:
             - not_found
             - method_not_allowed
+            - permission_denied
             - unauthenticated
             - invalid_request
             - rate_limited

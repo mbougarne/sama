@@ -79,3 +79,9 @@ Use the runtime database setting and the same OIDC configuration as the server.
 The command creates the initial identity, workspace, owner membership and audit
 atomically. It refuses any repeat or an installation already containing a
 workspace. It prints no identity or credential details and exposes no web route.
+
+Authenticated `/api/` requests resolve the session against PostgreSQL on every
+request. Tenant paths additionally resolve current membership and role; revoked
+membership returns 404 on the next request, while an insufficient role in a
+known workspace returns 403. Missing/expired sessions return 401. UI role hints
+are never authoritative. No domain endpoint is implied by this middleware.
