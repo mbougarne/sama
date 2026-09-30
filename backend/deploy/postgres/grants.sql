@@ -15,6 +15,9 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"migration_role" IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE :"migration_role" IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"runtime_role";
 
+-- First installation applies grants after all current forward migrations.
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"runtime_role";
+
 REVOKE ALL ON TABLE public.sama_schema_migrations FROM PUBLIC, :"runtime_role";
 REVOKE ALL ON TABLE public.audit_events FROM PUBLIC, :"runtime_role";
 GRANT SELECT, INSERT ON TABLE public.audit_events TO :"runtime_role";

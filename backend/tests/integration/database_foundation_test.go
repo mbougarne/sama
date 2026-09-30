@@ -229,7 +229,7 @@ func TestDistinctDatabaseRolesAndTransactionalAudit(t *testing.T) {
 		}
 		probeMigration[entry.Name()] = &fstest.MapFile{Data: contents, Mode: 0o444}
 	}
-	probeMigration["000002_probe.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE public.migration_identity_probe (id integer PRIMARY KEY)"), Mode: 0o444}
+	probeMigration["999999_probe.sql"] = &fstest.MapFile{Data: []byte("CREATE TABLE public.migration_identity_probe (id integer PRIMARY KEY)"), Mode: 0o444}
 	if err := platform.ApplyMigrations(context.Background(), migrationPool, probeMigration, integrationMigrationQueryTimeout); err != nil {
 		t.Fatal("migration identity could not apply an isolated fixture migration")
 	}
@@ -273,6 +273,9 @@ func TestDistinctDatabaseRolesAndTransactionalAudit(t *testing.T) {
 	}
 
 	workspaceID := uuid.MustParse("018f1f4e-7b0b-7cc3-98df-86d5c7d6d802")
+	if _, err := platform.Exec(context.Background(), runtimePool, "INSERT INTO workspaces (id, name) VALUES ($1, 'Audit fixture')", workspaceID); err != nil {
+		t.Fatal("could not create audit fixture workspace")
+	}
 	requestID := "request-transaction-1"
 	eventID, err := audit.NewID()
 	if err != nil {
