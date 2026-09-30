@@ -34,6 +34,7 @@ type Event struct {
 var safeCode = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 var metadataFields = map[string]map[string]bool{
+	"auth.logout":                   {},
 	"auth.login":                    {},
 	"workspace.created":             {},
 	"membership.changed":            {"member_id": true, "role": true},

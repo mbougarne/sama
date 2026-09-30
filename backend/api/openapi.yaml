@@ -65,6 +65,22 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current session and expire its cookie
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      responses:
+        '204':
+          description: Session revoked or already absent; session cookie expired.
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   parameters:
     RequestId:

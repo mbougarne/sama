@@ -41,6 +41,10 @@ func NewHandler(auth ...*Auth) http.Handler {
 			auth[0].callback(w, r)
 			return
 		}
+		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/logout" {
+			auth[0].logout(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			protected.ServeHTTP(w, r)
 			return
