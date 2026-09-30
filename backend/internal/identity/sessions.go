@@ -133,3 +133,5 @@ func (s *Sessions) Revoke(ctx context.Context, token string) error {
 	}
 	return nil
 }
+
+func (s *Sessions) CookieMaxAge() int { return int(s.policy.Absolute / time.Second) }

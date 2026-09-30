@@ -49,6 +49,22 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /auth/callback:
+    get:
+      operationId: finishLogin
+      summary: Consume a browser-bound OIDC challenge and issue an admitted user session
+      parameters:
+        - {name: state, in: query, required: true, schema: {type: string}}
+        - {name: code, in: query, required: true, schema: {type: string}}
+      responses:
+        '302':
+          description: Session cookie issued; redirect to the same-origin overview.
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   parameters:
     RequestId:
@@ -137,6 +153,7 @@ components:
         status:
           type: integer
           enum:
+            - 401
             - 400
             - 404
             - 405
@@ -147,6 +164,7 @@ components:
           enum:
             - not_found
             - method_not_allowed
+            - unauthenticated
             - invalid_request
             - rate_limited
             - identity_unavailable

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -11,6 +12,8 @@ import (
 
 // Auth is installation configuration injected by the composition root.
 type Auth struct {
+	Pool       *pgxpool.Pool
+	Sessions   *identity.Sessions
 	OIDC       *identity.OIDC
 	Challenges *identity.Challenges
 }

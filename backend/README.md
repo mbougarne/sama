@@ -30,7 +30,11 @@ this mode. OIDC requires a configured database with migrations applied.
 nonce and S256 PKCE values. A browser-bound challenge expires after five minutes
 and can be consumed only once. Installation-wide initiation is limited to 30 per
 minute and 1000 stored challenges; arbitrary redirect/issuer parameters are
-rejected. The callback is introduced by the next identity slice.
+rejected. `GET /auth/callback` consumes state before exchanging the code, verifies
+nonce and token claims, and admits only an existing issuer/subject identity with
+an active workspace membership. Email matching never enrolls a user. Session and
+allowlisted login audit commit together; production cookies use
+`__Host-sama_session`, Secure, HttpOnly, SameSite=Lax, Path=/ and no Domain.
 
 ## PostgreSQL migrations and roles
 

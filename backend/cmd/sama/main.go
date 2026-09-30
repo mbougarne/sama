@@ -56,7 +56,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	var auth *httpapi.Auth
 	if login != nil {
-		auth = &httpapi.Auth{OIDC: login, Challenges: identity.NewChallenges(pool, time.Now)}
+		sessions, err := identity.NewSessions(pool, identity.DefaultSessionPolicy(), time.Now)
+		if err != nil {
+			return err
+		}
+		auth = &httpapi.Auth{OIDC: login, Challenges: identity.NewChallenges(pool, time.Now), Sessions: sessions, Pool: pool}
 	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,

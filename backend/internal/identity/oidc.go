@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"io"
 	"net"
@@ -125,6 +126,25 @@ func (o *OIDC) Verify(ctx context.Context, raw string) (*oidc.IDToken, error) {
 	token, err := o.verifier.Verify(oidc.ClientContext(ctx, o.client), raw)
 	if err != nil || token.Subject == "" || len(token.Subject) > 255 {
 		return nil, errors.New("OIDC token rejected")
+	}
+	return token, nil
+}
+
+// Exchange binds the code to PKCE and nonce. No access/refresh/ID token is persisted.
+func (o *OIDC) Exchange(ctx context.Context, code, verifier, nonce string) (*oidc.IDToken, error) {
+	bounded, cancel := context.WithTimeout(oidc.ClientContext(ctx, o.client), 10*time.Second)
+	defer cancel()
+	response, err := o.OAuth.Exchange(bounded, code, oauth2.VerifierOption(verifier))
+	if err != nil {
+		return nil, ErrUnauthenticated
+	}
+	raw, ok := response.Extra("id_token").(string)
+	if !ok {
+		return nil, ErrUnauthenticated
+	}
+	token, err := o.Verify(bounded, raw)
+	if err != nil || subtle.ConstantTimeCompare([]byte(token.Nonce), []byte(nonce)) != 1 {
+		return nil, ErrUnauthenticated
 	}
 	return token, nil
 }

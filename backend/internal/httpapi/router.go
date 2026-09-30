@@ -32,6 +32,10 @@ func NewHandler(auth ...*Auth) http.Handler {
 			auth[0].login(w, r)
 			return
 		}
+		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/callback" {
+			auth[0].callback(w, r)
+			return
+		}
 		route(w, r)
 	}))
 }

@@ -38,6 +38,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Consume a browser-bound OIDC challenge and issue an admitted user session */
+    get: operations['finishLogin'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -51,11 +68,12 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 400 | 404 | 405 | 429 | 503;
+      status: 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'not_found'
         | 'method_not_allowed'
+        | 'unauthenticated'
         | 'invalid_request'
         | 'rate_limited'
         | 'identity_unavailable';
@@ -149,6 +167,29 @@ export interface operations {
       302: {
         headers: {
           Location?: string;
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  finishLogin: {
+    parameters: {
+      query: {
+        state: string;
+        code: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Session cookie issued; redirect to the same-origin overview. */
+      302: {
+        headers: {
           'Set-Cookie'?: string;
           [name: string]: unknown;
         };
