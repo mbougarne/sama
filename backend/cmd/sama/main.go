@@ -9,8 +9,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"sama/backend/internal/httpapi"
+	"sama/backend/internal/identity"
 	"sama/backend/internal/platform"
 )
 
@@ -28,6 +30,15 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	config, err := platform.Load()
 	if err != nil {
 		return err
+	}
+	oidcConfig, err := identity.LoadOIDC(config.PublicOrigin.String(), os.LookupEnv, os.ReadFile)
+	if err != nil {
+		return err
+	}
+	if oidcConfig.Issuer != "" {
+		if _, err := identity.NewOIDC(ctx, oidcConfig, time.Now); err != nil {
+			return err
+		}
 	}
 	if config.Database.URL != "" {
 		pool, err := platform.OpenPool(ctx, config.Database)
