@@ -16,6 +16,10 @@ func (a *Auth) apiRoutes(w http.ResponseWriter, r *http.Request) {
 		route(w, r)
 		return
 	}
+	if r.URL.Path == "/api/v1/workspaces" && r.Method == http.MethodPost {
+		a.createWorkspace(w, r)
+		return
+	}
 	if r.Method != http.MethodGet {
 		writeProblem(w, r, 405, "method_not_allowed", "Method Not Allowed")
 		return
