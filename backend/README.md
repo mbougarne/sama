@@ -65,3 +65,17 @@ The test requires the Docker CLI and a running local Docker daemon. It starts th
 The fixture removes its generated container and anonymous data volume through test cleanup, and its integration test verifies removal. Missing Docker or a stopped daemon is a test failure, not a skipped test. Start the local Docker daemon before running the command; no manual database creation or cleanup is needed.
 
 The local module path is `sama/backend` until the real hosting/module identity is selected. No GitHub owner is invented. All Go tooling, database migrations and backend tests stay in this directory. Create additional modules with their first feature; see the [architecture](../docs/architecture/README.md).
+
+## Explicit installation owner
+
+After migrations and runtime grants, run the local command using the configured
+issuer and exact OIDC subject (email is not an identity key):
+
+```sh
+go run ./cmd/sama-bootstrap --issuer https://issuer.example --subject exact-subject --workspace-name 'My workspace'
+```
+
+Use the runtime database setting and the same OIDC configuration as the server.
+The command creates the initial identity, workspace, owner membership and audit
+atomically. It refuses any repeat or an installation already containing a
+workspace. It prints no identity or credential details and exposes no web route.
