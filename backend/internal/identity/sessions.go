@@ -84,8 +84,8 @@ func (s *Sessions) Create(ctx context.Context, tx pgx.Tx, user uuid.UUID, authen
 			return Credential{}, ErrStore
 		}
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO sessions (token_digest,user_id,csrf_digest,authenticated_at,created_at,last_seen_at,idle_expires_at,absolute_expires_at)
- SELECT $1,id,$3,$4,$5,$5,$6,$7 FROM users WHERE id=$2 AND disabled_at IS NULL`, digest, user, csrfHash, authenticatedAt, now, now.Add(s.policy.Idle), now.Add(s.policy.Absolute))
+	_, err = tx.Exec(ctx, `INSERT INTO sessions (token_digest,user_id,csrf_digest,authenticated_at,created_at,last_seen_at,idle_expires_at,absolute_expires_at,audit_workspace_id)
+ SELECT $1,id,$3,$4,$5,$5,$6,$7,(SELECT workspace_id FROM memberships WHERE user_id=$2 ORDER BY workspace_id LIMIT 1) FROM users WHERE id=$2 AND disabled_at IS NULL`, digest, user, csrfHash, authenticatedAt, now, now.Add(s.policy.Idle), now.Add(s.policy.Absolute))
 	if err != nil {
 		return Credential{}, ErrStore
 	}

@@ -65,3 +65,37 @@ The test requires the Docker CLI and a running local Docker daemon. It starts th
 The fixture removes its generated container and anonymous data volume through test cleanup, and its integration test verifies removal. Missing Docker or a stopped daemon is a test failure, not a skipped test. Start the local Docker daemon before running the command; no manual database creation or cleanup is needed.
 
 The local module path is `sama/backend` until the real hosting/module identity is selected. No GitHub owner is invented. All Go tooling, database migrations and backend tests stay in this directory. Create additional modules with their first feature; see the [architecture](../docs/architecture/README.md).
+
+## Explicit installation owner
+
+After migrations and runtime grants, run the local command using the configured
+issuer and exact OIDC subject (email is not an identity key):
+
+```sh
+go run ./cmd/sama-bootstrap --issuer https://issuer.example --subject exact-subject --workspace-name 'My workspace'
+```
+
+Use the runtime database setting and the same OIDC configuration as the server.
+The command creates the initial identity, workspace, owner membership and audit
+atomically. It refuses any repeat or an installation already containing a
+workspace. It prints no identity or credential details and exposes no web route.
+
+Authenticated `/api/` requests resolve the session against PostgreSQL on every
+request. Tenant paths additionally resolve current membership and role; revoked
+membership returns 404 on the next request, while an insufficient role in a
+known workspace returns 403. Missing/expired sessions return 401. UI role hints
+are never authoritative. No domain endpoint is implied by this middleware.
+
+`POST /auth/logout` requires the configured Origin, JSON content type and the
+session-bound `X-CSRF-Token`. Login supplies a separate readable same-origin
+`__Host-sama_csrf` cookie (development: `sama_csrf`) for this header. Logout
+atomically revokes the session and appends audit, expires both cookies, and is
+safe to repeat. Audit retains the session's workspace scope after membership
+removal. `go run ./cmd/sama-sessions-cleanup` explicitly removes at most 1000
+expired sessions per invocation using the runtime database identity.
+
+`GET /api/v1/me` exposes only the current user's UUID and display name.
+`GET /api/v1/workspaces` lists current active memberships as `{data,next_cursor}`,
+including UUID, name and role. Its default page size is 20 (maximum 100); pass the
+returned UUID cursor for the next stable page. Neither response exposes issuer
+subjects, session/CSRF digests, OIDC tokens or credentials.
