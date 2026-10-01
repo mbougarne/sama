@@ -87,6 +87,7 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, a.cookie("session", credential.Token, a.Sessions.CookieMaxAge()))
+	http.SetCookie(w, a.csrfCookie(credential.CSRF, a.Sessions.CookieMaxAge()))
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, "/", http.StatusFound)
 }
