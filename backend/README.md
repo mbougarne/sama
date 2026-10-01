@@ -1,6 +1,6 @@
 # Sama backend
 
-Go owns the browser-facing API and future provider integration. The executable provides HTTP lifecycle handling, JSON logging, bounded optional PostgreSQL connectivity, a liveness route and a shared problem response boundary. It has no identity, provider adapters or management endpoints yet.
+Go owns the browser-facing API and future provider integration. The executable provides HTTP lifecycle handling, JSON logging, bounded optional PostgreSQL connectivity, a liveness route and a shared problem response boundary. OIDC identity, opaque sessions, explicit owner bootstrap and workspace access are implemented below. Provider adapters and cloud-management endpoints remain future work.
 
 Use the Go toolchain declared in `go.mod`. The baseline is the supported previous Go release series, with its patch version pinned. An installed Go 1.24 command can download and select that toolchain with `GOTOOLCHAIN=auto`; this does not build Sama with Go 1.24 or update the system installation. See [Go toolchain selection](https://go.dev/doc/toolchain).
 
@@ -99,3 +99,10 @@ expired sessions per invocation using the runtime database identity.
 including UUID, name and role. Its default page size is 20 (maximum 100); pass the
 returned UUID cursor for the next stable page. Neither response exposes issuer
 subjects, session/CSRF digests, OIDC tokens or credentials.
+
+`POST /api/v1/workspaces` accepts JSON `{name}` from an admitted authenticated
+user with configured Origin and session-bound CSRF. Names contain 1–100 Unicode
+characters, no control characters or outer whitespace; unknown fields and bodies
+above 1 KiB are rejected. Creation commits the workspace, creator owner membership
+and audit together. A per-user row lock enforces at most ten owned workspaces,
+including concurrent requests. Invalid names return 422 and the limit returns 429.

@@ -97,7 +97,7 @@ export interface paths {
     };
     get: operations['listWorkspaces'];
     put?: never;
-    post?: never;
+    post: operations['createWorkspace'];
     delete?: never;
     options?: never;
     head?: never;
@@ -134,11 +134,13 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 403 | 401 | 400 | 404 | 405 | 429 | 503;
+      status: 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'not_found'
         | 'method_not_allowed'
+        | 'invalid_workspace'
+        | 'workspace_limit'
         | 'permission_denied'
         | 'unauthenticated'
         | 'invalid_request'
@@ -328,6 +330,37 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['WorkspacePage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  createWorkspace: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Workspace and creator ownership committed with audit. */
+      201: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Workspace'];
         };
       };
       default: components['responses']['Problem'];

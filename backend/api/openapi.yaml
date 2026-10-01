@@ -3,8 +3,8 @@ info:
   title: Sama HTTP contract
   version: 0.0.0
   description: >-
-    This source contract documents only the implemented liveness route and
-    shared HTTP problem envelope. Future entity identifiers use canonical
+    This source contract documents implemented liveness, OIDC login/logout,
+    current-user and workspace routes and the shared HTTP problem envelope. Future entity identifiers use canonical
     lowercase hyphenated UUIDv7 strings; request_id is a separate bounded
     correlation value and is not an entity identifier or secret.
 servers:
@@ -106,6 +106,34 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WorkspacePage'}
+        default:
+          $ref: '#/components/responses/Problem'
+
+    post:
+      operationId: createWorkspace
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '201':
+          description: Workspace and creator ownership committed with audit.
+          headers:
+            Location:
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Workspace'}
         default:
           $ref: '#/components/responses/Problem'
 
@@ -221,6 +249,7 @@ components:
         status:
           type: integer
           enum:
+            - 422
             - 403
             - 401
             - 400
@@ -233,6 +262,8 @@ components:
           enum:
             - not_found
             - method_not_allowed
+            - invalid_workspace
+            - workspace_limit
             - permission_denied
             - unauthenticated
             - invalid_request
