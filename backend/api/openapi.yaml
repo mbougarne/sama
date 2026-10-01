@@ -3,8 +3,8 @@ info:
   title: Sama HTTP contract
   version: 0.0.0
   description: >-
-    This source contract documents only the implemented liveness route and
-    shared HTTP problem envelope. Future entity identifiers use canonical
+    This source contract documents implemented liveness, OIDC login/logout,
+    current-user and workspace routes and the shared HTTP problem envelope. Future entity identifiers use canonical
     lowercase hyphenated UUIDv7 strings; request_id is a separate bounded
     correlation value and is not an entity identifier or secret.
 servers:
@@ -32,7 +32,114 @@ paths:
                 $ref: '#/components/schemas/Health'
         default:
           $ref: '#/components/responses/Problem'
+  /auth/login:
+    get:
+      operationId: startLogin
+      summary: Start a bounded OIDC login with a one-use browser-bound challenge
+      responses:
+        '302':
+          description: Redirect to the configured issuer with state, nonce and S256 PKCE.
+          headers:
+            Location:
+              schema:
+                type: string
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /auth/callback:
+    get:
+      operationId: finishLogin
+      summary: Consume a browser-bound OIDC challenge and issue an admitted user session
+      parameters:
+        - {name: state, in: query, required: true, schema: {type: string}}
+        - {name: code, in: query, required: true, schema: {type: string}}
+      responses:
+        '302':
+          description: Session cookie issued; redirect to the same-origin overview.
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revoke the current session and expire its cookie
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      responses:
+        '204':
+          description: Session revoked or already absent; session cookie expired.
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Safe current-user metadata.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces:
+    get:
+      operationId: listWorkspaces
+      security: [{session: []}]
+      parameters:
+        - {name: cursor, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200':
+          description: Current workspace memberships in stable UUID order.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspacePage'}
+        default:
+          $ref: '#/components/responses/Problem'
+
+    post:
+      operationId: createWorkspace
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '201':
+          description: Workspace and creator ownership committed with audit.
+          headers:
+            Location:
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Workspace'}
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
+  securitySchemes:
+    session: {type: apiKey, in: cookie, name: __Host-sama_session}
   parameters:
     RequestId:
       name: X-Request-ID
@@ -93,6 +200,28 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, display_name]
+      properties:
+        id: {type: string, format: uuid}
+        display_name: {type: string, maxLength: 200}
+    Workspace:
+      type: object
+      additionalProperties: false
+      required: [id, name, role]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 100}
+        role: {type: string, enum: [viewer, operator, admin, owner]}
+    WorkspacePage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, maxItems: 100, items: {$ref: '#/components/schemas/Workspace'}}
+        next_cursor: {type: [string, 'null'], format: uuid}
     Health:
       type: object
       additionalProperties: false
@@ -120,13 +249,26 @@ components:
         status:
           type: integer
           enum:
+            - 422
+            - 403
+            - 401
+            - 400
             - 404
             - 405
+            - 429
+            - 503
         code:
           type: string
           enum:
             - not_found
             - method_not_allowed
+            - invalid_workspace
+            - workspace_limit
+            - permission_denied
+            - unauthenticated
+            - invalid_request
+            - rate_limited
+            - identity_unavailable
         request_id:
           type: string
           minLength: 1

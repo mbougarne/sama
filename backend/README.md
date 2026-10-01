@@ -1,6 +1,6 @@
 # Sama backend
 
-Go owns the browser-facing API and future provider integration. The executable provides HTTP lifecycle handling, JSON logging, bounded optional PostgreSQL connectivity, a liveness route and a shared problem response boundary. It has no identity, provider adapters or management endpoints yet.
+Go owns the browser-facing API and future provider integration. The executable provides HTTP lifecycle handling, JSON logging, bounded optional PostgreSQL connectivity, a liveness route and a shared problem response boundary. OIDC identity, opaque sessions, explicit owner bootstrap and workspace access are implemented below. Provider adapters and cloud-management endpoints remain future work.
 
 Use the Go toolchain declared in `go.mod`. The baseline is the supported previous Go release series, with its patch version pinned. An installed Go 1.24 command can download and select that toolchain with `GOTOOLCHAIN=auto`; this does not build Sama with Go 1.24 or update the system installation. See [Go toolchain selection](https://go.dev/doc/toolchain).
 
@@ -11,6 +11,30 @@ sh scripts/check.sh format
 ```
 
 Run these from `backend/`. Configuration is loaded once at startup. The server binds to `127.0.0.1:8080`; set `SAMA_HTTP_ADDR` to override it. `SAMA_PUBLIC_ORIGIN` accepts an absolute `http` or `https` origin. Set `SAMA_DATABASE_URL` directly or use `SAMA_DATABASE_URL_FILE` for a mounted runtime credential; the direct value wins when both are set. When configured, the server verifies the PostgreSQL connection before listening and opens a pool capped at 10 connections. Pool acquisition is bounded to 2 seconds and runtime PostgreSQL statements to 5 seconds. Neither connection URL nor driver detail is printed in diagnostics. `SAMA_MIGRATION_DATABASE_URL` or `SAMA_MIGRATION_DATABASE_URL_FILE` supplies the separate migration identity to the explicit migration command below. That command uses a separate per-query/migration-file timeout, defaulting to 30 minutes; set `SAMA_MIGRATION_QUERY_TIMEOUT` to a Go duration from 1 second through 24 hours to tune it. `SAMA_READ_HEADER_TIMEOUT`, `SAMA_READ_TIMEOUT`, `SAMA_WRITE_TIMEOUT`, `SAMA_IDLE_TIMEOUT` and `SAMA_SHUTDOWN_TIMEOUT` accept bounded Go durations. `SAMA_WORKER_COUNT` defaults to 4, `SAMA_PROVIDER_REQUESTS_PER_CONNECTION` defaults to 2, and `SAMA_TRUSTED_PROXY_RANGES` accepts comma-separated CIDR ranges. `GET /health` reports process liveness only, not database/provider readiness. Unknown paths return an `application/problem+json` envelope with a validated, bounded `X-Request-ID`. Shutdown handles interrupt/termination signals with a bounded drain period. Logs emit fixed diagnostic codes rather than raw errors, configured addresses, or HTTP diagnostic payloads; private context is deliberately omitted. Codes distinguish configuration failures, address conflicts, invalid addresses, permission errors and shutdown timeouts, with generic fallbacks for other failures. The build command produces ignored `bin/sama`.
+
+## OIDC configuration
+
+Set `SAMA_OIDC_ISSUER` and `SAMA_OIDC_CLIENT_ID` together. An optional
+`SAMA_OIDC_CLIENT_SECRET_FILE` supplies a mounted client secret. Startup verifies
+the configured discovery document; HTTP requests cannot choose another issuer.
+Production issuer and public origin require HTTPS. The callback is always
+`SAMA_PUBLIC_ORIGIN` plus `/auth/callback`, independent of request Host headers.
+Discovery and token/key HTTP requests have a five-second timeout, a 1 MiB response
+limit and no automatic redirects. Tokens require RS256/ES256 signatures, the
+configured issuer/client audience and unexpired claims.
+
+For a synthetic local issuer only, `SAMA_OIDC_DEVELOPMENT=true` explicitly permits
+HTTP and requires loopback issuer and public origin. Keep real credentials out of
+this mode. OIDC requires a configured database with migrations applied.
+`GET /auth/login` redirects to the configured issuer using independent state,
+nonce and S256 PKCE values. A browser-bound challenge expires after five minutes
+and can be consumed only once. Installation-wide initiation is limited to 30 per
+minute and 1000 stored challenges; arbitrary redirect/issuer parameters are
+rejected. `GET /auth/callback` consumes state before exchanging the code, verifies
+nonce and token claims, and admits only an existing issuer/subject identity with
+an active workspace membership. Email matching never enrolls a user. Session and
+allowlisted login audit commit together; production cookies use
+`__Host-sama_session`, Secure, HttpOnly, SameSite=Lax, Path=/ and no Domain.
 
 ## PostgreSQL migrations and roles
 
@@ -41,3 +65,44 @@ The test requires the Docker CLI and a running local Docker daemon. It starts th
 The fixture removes its generated container and anonymous data volume through test cleanup, and its integration test verifies removal. Missing Docker or a stopped daemon is a test failure, not a skipped test. Start the local Docker daemon before running the command; no manual database creation or cleanup is needed.
 
 The local module path is `sama/backend` until the real hosting/module identity is selected. No GitHub owner is invented. All Go tooling, database migrations and backend tests stay in this directory. Create additional modules with their first feature; see the [architecture](../docs/architecture/README.md).
+
+## Explicit installation owner
+
+After migrations and runtime grants, run the local command using the configured
+issuer and exact OIDC subject (email is not an identity key):
+
+```sh
+go run ./cmd/sama-bootstrap --issuer https://issuer.example --subject exact-subject --workspace-name 'My workspace'
+```
+
+Use the runtime database setting and the same OIDC configuration as the server.
+The command creates the initial identity, workspace, owner membership and audit
+atomically. It refuses any repeat or an installation already containing a
+workspace. It prints no identity or credential details and exposes no web route.
+
+Authenticated `/api/` requests resolve the session against PostgreSQL on every
+request. Tenant paths additionally resolve current membership and role; revoked
+membership returns 404 on the next request, while an insufficient role in a
+known workspace returns 403. Missing/expired sessions return 401. UI role hints
+are never authoritative. No domain endpoint is implied by this middleware.
+
+`POST /auth/logout` requires the configured Origin, JSON content type and the
+session-bound `X-CSRF-Token`. Login supplies a separate readable same-origin
+`__Host-sama_csrf` cookie (development: `sama_csrf`) for this header. Logout
+atomically revokes the session and appends audit, expires both cookies, and is
+safe to repeat. Audit retains the session's workspace scope after membership
+removal. `go run ./cmd/sama-sessions-cleanup` explicitly removes at most 1000
+expired sessions per invocation using the runtime database identity.
+
+`GET /api/v1/me` exposes only the current user's UUID and display name.
+`GET /api/v1/workspaces` lists current active memberships as `{data,next_cursor}`,
+including UUID, name and role. Its default page size is 20 (maximum 100); pass the
+returned UUID cursor for the next stable page. Neither response exposes issuer
+subjects, session/CSRF digests, OIDC tokens or credentials.
+
+`POST /api/v1/workspaces` accepts JSON `{name}` from an admitted authenticated
+user with configured Origin and session-bound CSRF. Names contain 1–100 Unicode
+characters, no control characters or outer whitespace; unknown fields and bodies
+above 1 KiB are rejected. Creation commits the workspace, creator owner membership
+and audit together. A per-user row lock enforces at most ten owned workspaces,
+including concurrent requests. Invalid names return 422 and the limit returns 429.
