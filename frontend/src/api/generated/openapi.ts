@@ -21,6 +21,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Start a bounded OIDC login with a one-use browser-bound challenge */
+    get: operations['startLogin'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -34,9 +51,14 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 404 | 405;
+      status: 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
-      code: 'not_found' | 'method_not_allowed';
+      code:
+        | 'not_found'
+        | 'method_not_allowed'
+        | 'invalid_request'
+        | 'rate_limited'
+        | 'identity_unavailable';
       request_id: string;
     };
   };
@@ -110,6 +132,27 @@ export interface operations {
         content: {
           'application/json': components['schemas']['Health'];
         };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  startLogin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Redirect to the configured issuer with state, nonce and S256 PKCE. */
+      302: {
+        headers: {
+          Location?: string;
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       default: components['responses']['Problem'];
     };

@@ -32,6 +32,23 @@ paths:
                 $ref: '#/components/schemas/Health'
         default:
           $ref: '#/components/responses/Problem'
+  /auth/login:
+    get:
+      operationId: startLogin
+      summary: Start a bounded OIDC login with a one-use browser-bound challenge
+      responses:
+        '302':
+          description: Redirect to the configured issuer with state, nonce and S256 PKCE.
+          headers:
+            Location:
+              schema:
+                type: string
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   parameters:
     RequestId:
@@ -120,13 +137,19 @@ components:
         status:
           type: integer
           enum:
+            - 400
             - 404
             - 405
+            - 429
+            - 503
         code:
           type: string
           enum:
             - not_found
             - method_not_allowed
+            - invalid_request
+            - rate_limited
+            - identity_unavailable
         request_id:
           type: string
           minLength: 1

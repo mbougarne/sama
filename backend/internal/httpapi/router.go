@@ -26,8 +26,14 @@ type problem struct {
 
 // NewHandler creates the current liveness and error boundary. No unknown path
 // can fall through to frontend HTML, and error text is never reflected.
-func NewHandler() http.Handler {
-	return withRequestID(http.HandlerFunc(route))
+func NewHandler(auth ...*Auth) http.Handler {
+	return withRequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/login" {
+			auth[0].login(w, r)
+			return
+		}
+		route(w, r)
+	}))
 }
 
 func route(response http.ResponseWriter, request *http.Request) {

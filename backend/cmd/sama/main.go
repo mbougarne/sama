@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"sama/backend/internal/httpapi"
 	"sama/backend/internal/identity"
 	"sama/backend/internal/platform"
@@ -35,21 +36,31 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	var login *identity.OIDC
 	if oidcConfig.Issuer != "" {
-		if _, err := identity.NewOIDC(ctx, oidcConfig, time.Now); err != nil {
+		login, err = identity.NewOIDC(ctx, oidcConfig, time.Now)
+		if err != nil {
 			return err
 		}
+		if config.Database.URL == "" {
+			return errors.New("OIDC database required")
+		}
 	}
+	var pool *pgxpool.Pool
 	if config.Database.URL != "" {
-		pool, err := platform.OpenPool(ctx, config.Database)
+		pool, err = platform.OpenPool(ctx, config.Database)
 		if err != nil {
 			return err
 		}
 		defer pool.Close()
 	}
+	var auth *httpapi.Auth
+	if login != nil {
+		auth = &httpapi.Auth{OIDC: login, Challenges: identity.NewChallenges(pool, time.Now)}
+	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
-		Handler:           httpapi.NewHandler(),
+		Handler:           httpapi.NewHandler(auth),
 		ReadHeaderTimeout: config.Timeouts.ReadHeader,
 		ReadTimeout:       config.Timeouts.Read,
 		WriteTimeout:      config.Timeouts.Write,

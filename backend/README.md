@@ -25,7 +25,12 @@ configured issuer/client audience and unexpired claims.
 
 For a synthetic local issuer only, `SAMA_OIDC_DEVELOPMENT=true` explicitly permits
 HTTP and requires loopback issuer and public origin. Keep real credentials out of
-this mode. Login routes are introduced by the subsequent identity slices.
+this mode. OIDC requires a configured database with migrations applied.
+`GET /auth/login` redirects to the configured issuer using independent state,
+nonce and S256 PKCE values. A browser-bound challenge expires after five minutes
+and can be consumed only once. Installation-wide initiation is limited to 30 per
+minute and 1000 stored challenges; arbitrary redirect/issuer parameters are
+rejected. The callback is introduced by the next identity slice.
 
 ## PostgreSQL migrations and roles
 
