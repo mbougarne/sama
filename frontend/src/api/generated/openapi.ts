@@ -38,10 +38,93 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Consume a browser-bound OIDC challenge and issue an admitted user session */
+    get: operations['finishLogin'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/auth/logout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Revoke the current session and expire its cookie */
+    post: operations['logout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getCurrentUser'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['listWorkspaces'];
+    put?: never;
+    post: operations['createWorkspace'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    User: {
+      /** Format: uuid */
+      id: string;
+      display_name: string;
+    };
+    Workspace: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @enum {string} */
+      role: 'viewer' | 'operator' | 'admin' | 'owner';
+    };
+    WorkspacePage: {
+      data: components['schemas']['Workspace'][];
+      /** Format: uuid */
+      next_cursor: string | null;
+    };
     Health: {
       /** @constant */
       status: 'ok';
@@ -51,11 +134,15 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 400 | 404 | 405 | 429 | 503;
+      status: 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'not_found'
         | 'method_not_allowed'
+        | 'invalid_workspace'
+        | 'workspace_limit'
+        | 'permission_denied'
+        | 'unauthenticated'
         | 'invalid_request'
         | 'rate_limited'
         | 'identity_unavailable';
@@ -153,6 +240,128 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  finishLogin: {
+    parameters: {
+      query: {
+        state: string;
+        code: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Session cookie issued; redirect to the same-origin overview. */
+      302: {
+        headers: {
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  logout: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Session revoked or already absent; session cookie expired. */
+      204: {
+        headers: {
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  getCurrentUser: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Safe current-user metadata. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['User'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  listWorkspaces: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current workspace memberships in stable UUID order. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkspacePage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  createWorkspace: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Workspace and creator ownership committed with audit. */
+      201: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Workspace'];
+        };
       };
       default: components['responses']['Problem'];
     };
