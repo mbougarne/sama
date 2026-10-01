@@ -30,7 +30,7 @@ func NewHandler(auth ...*Auth) http.Handler {
 	api := http.HandlerFunc(route)
 	var protected http.Handler = api
 	if len(auth) > 0 && auth[0] != nil {
-		protected = auth[0].Protect(api, "viewer")
+		protected = auth[0].Protect(http.HandlerFunc(auth[0].apiRoutes), "viewer")
 	}
 	return withRequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/login" {
