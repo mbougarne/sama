@@ -154,6 +154,54 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/v1/workspaces/{workspace_id}/members/{user_id}:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: user_id, in: path, required: true, schema: {type: string, format: uuid}}
+    put:
+      operationId: assignMember
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role, version]
+              properties:
+                version: {type: integer, minimum: 0}
+                role: {type: string, enum: [viewer, operator, admin, owner]}
+      responses:
+        '204':
+          description: Membership and audit committed; stale versions or final-owner removal return 409.
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      operationId: removeMember
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version]
+              properties:
+                version: {type: integer, minimum: 0}
+      responses:
+        '204':
+          description: Membership and audit committed; stale versions or final-owner removal return 409.
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     session: {type: apiKey, in: cookie, name: __Host-sama_session}
@@ -282,6 +330,7 @@ components:
         status:
           type: integer
           enum:
+            - 409
             - 422
             - 403
             - 401
@@ -293,6 +342,7 @@ components:
         code:
           type: string
           enum:
+            - membership_conflict
             - not_found
             - method_not_allowed
             - invalid_workspace

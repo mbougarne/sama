@@ -120,6 +120,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/workspaces/{workspace_id}/members/{user_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['assignMember'];
+    post?: never;
+    delete: operations['removeMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -163,9 +182,10 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
+      status: 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
+        | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
         | 'invalid_workspace'
@@ -417,6 +437,70 @@ export interface operations {
         content: {
           'application/json': components['schemas']['MemberPage'];
         };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  assignMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          version: number;
+          /** @enum {string} */
+          role: 'viewer' | 'operator' | 'admin' | 'owner';
+        };
+      };
+    };
+    responses: {
+      /** @description Membership and audit committed; stale versions or final-owner removal return 409. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  removeMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          version: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Membership and audit committed; stale versions or final-owner removal return 409. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       default: components['responses']['Problem'];
     };

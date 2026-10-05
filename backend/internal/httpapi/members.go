@@ -18,6 +18,10 @@ func (a *Auth) memberRoutes(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	suffix := strings.TrimPrefix(r.URL.Path, "/api/v1/workspaces/"+m.WorkspaceID.String())
+	if target, ok := strings.CutPrefix(suffix, "/members/"); ok {
+		a.changeMember(w, r, m, target)
+		return true
+	}
 	if suffix != "/members" {
 		return false
 	}
@@ -61,6 +65,8 @@ func (a *Auth) memberRoutes(w http.ResponseWriter, r *http.Request) bool {
 func (a *Auth) memberFailure(w http.ResponseWriter, r *http.Request, err error) {
 	status, code := 503, "identity_unavailable"
 	switch {
+	case errors.Is(err, workspace.ErrConflict):
+		status, code = 409, "membership_conflict"
 	case errors.Is(err, workspace.ErrInvalid):
 		status, code = 400, "invalid_request"
 	case errors.Is(err, workspace.ErrDenied):

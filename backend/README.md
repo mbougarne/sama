@@ -111,3 +111,9 @@ including concurrent requests. Invalid names return 422 and the limit returns 42
 in user UUID order (default 50, maximum 200). Owners see all roles; admins see
 viewer/operator members within their management ceiling. Other roles are denied.
 Cursors select a position only and never expand workspace access.
+
+`PUT /api/v1/workspaces/{workspace_id}/members/{user_id}` accepts `{role,version}`;
+version 0 assigns an existing admitted identity. `DELETE` accepts `{version}`.
+Both require Origin/CSRF, recheck current authority under a workspace lock, reject
+stale versions/final-owner removal with 409, and commit audit atomically.
+Admins can manage only viewer/operator members; only owners assign higher roles.
