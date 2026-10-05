@@ -4,10 +4,11 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"time"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"time"
 )
 
 var ErrRecentRequired = errors.New("recent authentication required")

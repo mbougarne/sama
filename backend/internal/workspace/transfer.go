@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,6 +41,9 @@ func Transfer(ctx context.Context, pool *pgxpool.Pool, actor, scope, target uuid
 	}
 	if _, err := tx.Exec(ctx, `UPDATE memberships SET role='owner',version=$3 WHERE workspace_id=$1 AND user_id=$2`, scope, target, revision); err != nil {
 		return ErrStore
+	}
+	if err := invalidateElevation(ctx, tx, target, member.Role, "owner"); err != nil {
+		return err
 	}
 	if err := memberAudit(ctx, tx, actor, scope, target, "owner", request); err != nil {
 		return err

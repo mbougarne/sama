@@ -5,12 +5,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"sama/backend/internal/audit"
 	"sama/backend/internal/platform"
-	"time"
 )
 
 func InvitationDigest(proof string) ([]byte, bool) {

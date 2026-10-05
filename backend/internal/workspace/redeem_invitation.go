@@ -3,10 +3,11 @@ package workspace
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"sama/backend/internal/identifier"
-	"time"
 )
 
 // RedeemInvitation must run after verified OIDC exchange in the same transaction
@@ -58,6 +59,9 @@ func RedeemInvitation(ctx context.Context, tx pgx.Tx, digest []byte, issuer, sub
 	}
 	if inserted.RowsAffected() != 1 {
 		return ErrConflict
+	}
+	if err := invalidateElevation(ctx, tx, user, "", role); err != nil {
+		return err
 	}
 	return memberAudit(ctx, tx, inviter, scope, user, role, request)
 }

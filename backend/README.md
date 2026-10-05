@@ -151,3 +151,5 @@ session must remain active, browser-bound and owned by the same verified identit
 Successful reauthentication rotates session/CSRF with login audit; workspace roles
 remain server-authoritative. An unsupported policy returns an explanatory 403.
 See [OIDC authentication requests](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest).
+Membership grants and role elevation revoke the affected user's existing sessions;
+their next login issues a new credential before newly granted authority is used.

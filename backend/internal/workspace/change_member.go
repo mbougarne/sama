@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"errors"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -117,11 +118,25 @@ func ChangeMember(ctx context.Context, pool *pgxpool.Pool, actor, scope, target 
 	if err != nil {
 		return ErrStore
 	}
+	if err := invalidateElevation(ctx, tx, target, previous.Role, role); err != nil {
+		return err
+	}
 	if err := memberAudit(ctx, tx, actor, scope, target, role, request); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return ErrStore
+	}
+	return nil
+}
+
+// Privilege elevation invalidates existing sessions; the next login rotates the
+// browser credential before it can exercise newly granted authority.
+func invalidateElevation(ctx context.Context, tx pgx.Tx, user uuid.UUID, previous, next string) error {
+	if next != "" && !Allows(previous, next) {
+		if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, user); err != nil {
+			return ErrStore
+		}
 	}
 	return nil
 }

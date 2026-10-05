@@ -99,3 +99,34 @@ func TestMembershipChangesCeilingsAtomicityAndConcurrency(t *testing.T) {
 		t.Fatal(fmt.Sprint("revocation delayed: ", err))
 	}
 }
+
+func TestReassignmentVersionsAndElevatedSessions(t *testing.T) {
+	pool := identityDatabase(t)
+	owner, scope := seedIdentity(t, pool)
+	target, _ := seedIdentity(t, pool)
+	ctx := context.Background()
+	sessions, _ := identity.NewSessions(pool, identity.DefaultSessionPolicy(), time.Now)
+	old := issueSession(t, sessions, pool, target, time.Now().Add(-time.Second), "")
+	change := func(role string, version int64) error {
+		return workspace.ChangeMember(ctx, pool, owner, scope, target, role, version, "reassignment")
+	}
+	if err := change("viewer", 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sessions.Resolve(ctx, old.Token); err != identity.ErrUnauthenticated {
+		t.Fatal("new authority reused old session")
+	}
+	member, err := workspace.ResolveMembership(ctx, pool, target, scope, "viewer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := change("", member.Version); err != nil {
+		t.Fatal(err)
+	}
+	if err := change("viewer", 0); err != nil {
+		t.Fatal(err)
+	}
+	if change("operator", member.Version) != workspace.ErrConflict {
+		t.Fatal("removed membership version became valid again")
+	}
+}
