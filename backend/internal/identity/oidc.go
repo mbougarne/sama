@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,18 +19,22 @@ import (
 type OIDCConfig struct {
 	Issuer, ClientID, ClientSecret, PublicOrigin string
 	Development                                  bool
+	ReauthACR                                    string
 }
 
 type OIDC struct {
-	Config   OIDCConfig
-	OAuth    oauth2.Config
-	verifier *oidc.IDTokenVerifier
-	client   *http.Client
+	Config                    OIDCConfig
+	OAuth                     oauth2.Config
+	verifier                  *oidc.IDTokenVerifier
+	client                    *http.Client
+	now                       func() time.Time
+	ReauthenticationSupported bool
 }
 
 func LoadOIDC(origin string, lookup func(string) (string, bool), read func(string) ([]byte, error)) (OIDCConfig, error) {
 	value := func(key string) string { v, _ := lookup(key); return v }
 	c := OIDCConfig{Issuer: value("SAMA_OIDC_ISSUER"), ClientID: value("SAMA_OIDC_CLIENT_ID"), PublicOrigin: origin}
+	c.ReauthACR = value("SAMA_OIDC_REAUTH_ACR")
 	mode := value("SAMA_OIDC_DEVELOPMENT")
 	if mode != "" && mode != "true" && mode != "false" {
 		return c, errors.New("invalid OIDC configuration")
@@ -42,7 +47,7 @@ func LoadOIDC(origin string, lookup func(string) (string, bool), read func(strin
 		}
 		c.ClientSecret = strings.TrimSpace(string(contents))
 	}
-	if c.Issuer == "" && c.ClientID == "" && c.ClientSecret == "" && !c.Development {
+	if c.Issuer == "" && c.ClientID == "" && c.ClientSecret == "" && !c.Development && c.ReauthACR == "" {
 		return c, nil
 	}
 	if err := c.validate(); err != nil {
@@ -52,6 +57,9 @@ func LoadOIDC(origin string, lookup func(string) (string, bool), read func(strin
 }
 
 func (c OIDCConfig) validate() error {
+	if len(c.ReauthACR) > 255 || strings.ContainsAny(c.ReauthACR, " \t\r\n") {
+		return errors.New("invalid OIDC reauthentication policy")
+	}
 	origin, err := url.Parse(c.PublicOrigin)
 	if err != nil || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
 		return errors.New("invalid OIDC configuration")
@@ -112,13 +120,21 @@ func NewOIDC(ctx context.Context, c OIDCConfig, now func() time.Time) (*OIDC, er
 	if err != nil {
 		return nil, errors.New("OIDC discovery unavailable")
 	}
+	var metadata struct {
+		Claims []string `json:"claims_supported"`
+		ACRs   []string `json:"acr_values_supported"`
+	}
+	if err := provider.Claims(&metadata); err != nil {
+		return nil, errors.New("invalid OIDC discovery")
+	}
+	supported := c.ReauthACR != "" && slices.Contains(metadata.Claims, "auth_time") && slices.Contains(metadata.ACRs, c.ReauthACR)
 	endpoints := provider.Endpoint()
 	if !oidcURL(endpoints.AuthURL, c.Development) || !oidcURL(endpoints.TokenURL, c.Development) {
 		return nil, errors.New("invalid OIDC endpoint")
 	}
 	origin, _ := url.Parse(c.PublicOrigin)
 	origin.Path = "/auth/callback"
-	return &OIDC{Config: c, OAuth: oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, RedirectURL: origin.String(), Endpoint: endpoints, Scopes: []string{oidc.ScopeOpenID}}, client: client,
+	return &OIDC{now: now, ReauthenticationSupported: supported, Config: c, OAuth: oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, RedirectURL: origin.String(), Endpoint: endpoints, Scopes: []string{oidc.ScopeOpenID}}, client: client,
 		verifier: provider.VerifierContext(oidc.ClientContext(ctx, client), &oidc.Config{ClientID: c.ClientID, SupportedSigningAlgs: []string{oidc.RS256, oidc.ES256}, Now: now})}, nil
 }
 

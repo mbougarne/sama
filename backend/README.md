@@ -136,3 +136,9 @@ Verified callback must match the exact issuer/subject; it rechecks the inviter's
 current membership version and ceiling, then consumes proof, creates admission,
 session and audit atomically. Expired/replayed/mismatched proof fails closed.
 Existing members use explicit membership changes; invitations do not overwrite roles.
+
+For high-impact reauthentication, explicitly set `SAMA_OIDC_REAUTH_ACR` to the
+reviewed issuer authentication policy (including MFA where required). Discovery
+must advertise that ACR and `auth_time`; otherwise reauthentication fails closed.
+The reusable five-minute gate accepts only a verified reauthentication round trip,
+never a fresh token `iat` alone. Sessions predating this feature require reauthentication.
