@@ -229,6 +229,39 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/v1/workspaces/{workspace_id}/invitations:
+    post:
+      operationId: issueInvitation
+      security: [{session: []}]
+      parameters:
+        - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [subject, role]
+              properties:
+                subject: {type: string, minLength: 1, maxLength: 255}
+                role: {type: string, enum: [viewer, operator, admin, owner]}
+      responses:
+        '201':
+          description: One-use invitation for the configured issuer, valid 24 hours. Share manually; proof is returned only once.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [token]
+                properties:
+                  token: {type: string, minLength: 43, maxLength: 43}
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     session: {type: apiKey, in: cookie, name: __Host-sama_session}

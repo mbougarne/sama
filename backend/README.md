@@ -122,3 +122,9 @@ Admins can manage only viewer/operator members; only owners assign higher roles.
 Origin/CSRF and `{user_id,actor_version,target_version,demote}`. The target must
 already be a current member. Optional `demote: true` makes the caller an admin;
 the grant, demotion and both affected-member audit events commit together.
+
+`POST /api/v1/workspaces/{workspace_id}/invitations` accepts `{subject,role}`
+with Origin/CSRF. The issuer comes from installation configuration. Owners/admins
+may invite within their current ceiling; at most 100 unexpired invitations exist
+per workspace. The response contains a random one-use `token`, shown only once
+for manual sharing, valid 24 hours. Only its digest is stored; no email is sent.

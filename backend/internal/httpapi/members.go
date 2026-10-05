@@ -18,6 +18,10 @@ func (a *Auth) memberRoutes(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	suffix := strings.TrimPrefix(r.URL.Path, "/api/v1/workspaces/"+m.WorkspaceID.String())
+	if suffix == "/invitations" {
+		a.issueInvitation(w, r, m)
+		return true
+	}
 	if suffix == "/ownership-transfers" {
 		a.transferOwnership(w, r, m)
 		return true
@@ -69,6 +73,8 @@ func (a *Auth) memberRoutes(w http.ResponseWriter, r *http.Request) bool {
 func (a *Auth) memberFailure(w http.ResponseWriter, r *http.Request, err error) {
 	status, code := 503, "identity_unavailable"
 	switch {
+	case errors.Is(err, workspace.ErrLimit):
+		status, code = 429, "rate_limited"
 	case errors.Is(err, workspace.ErrConflict):
 		status, code = 409, "membership_conflict"
 	case errors.Is(err, workspace.ErrInvalid):
