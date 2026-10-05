@@ -12,6 +12,9 @@ import (
 )
 
 func (a *Auth) apiRoutes(w http.ResponseWriter, r *http.Request) {
+	if a.memberRoutes(w, r) {
+		return
+	}
 	if r.URL.Path != "/api/v1/me" && r.URL.Path != "/api/v1/workspaces" {
 		route(w, r)
 		return

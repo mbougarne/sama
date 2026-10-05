@@ -106,3 +106,8 @@ characters, no control characters or outer whitespace; unknown fields and bodies
 above 1 KiB are rejected. Creation commits the workspace, creator owner membership
 and audit together. A per-user row lock enforces at most ten owned workspaces,
 including concurrent requests. Invalid names return 422 and the limit returns 429.
+
+`GET /api/v1/workspaces/{workspace_id}/members` lists safe membership metadata
+in user UUID order (default 50, maximum 200). Owners see all roles; admins see
+viewer/operator members within their management ceiling. Other roles are denied.
+Cursors select a position only and never expand workspace access.

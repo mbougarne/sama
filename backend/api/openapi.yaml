@@ -137,6 +137,23 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/v1/workspaces/{workspace_id}/members:
+    get:
+      operationId: listMembers
+      security: [{session: []}]
+      parameters:
+        - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: cursor, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        '200':
+          description: Owners see all members; admins see viewer/operator members, ordered by user UUID.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MemberPage'}
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     session: {type: apiKey, in: cookie, name: __Host-sama_session}
@@ -200,6 +217,22 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    Member:
+      type: object
+      additionalProperties: false
+      required: [user_id, display_name, role, version]
+      properties:
+        user_id: {type: string, format: uuid}
+        display_name: {type: string, maxLength: 200}
+        role: {type: string, enum: [viewer, operator, admin, owner]}
+        version: {type: integer, minimum: 1}
+    MemberPage:
+      type: object
+      required: [data, next_cursor]
+      additionalProperties: false
+      properties:
+        data: {type: array, maxItems: 200, items: {$ref: '#/components/schemas/Member'}}
+        next_cursor: {type: [string, 'null'], format: uuid}
     User:
       type: object
       additionalProperties: false
