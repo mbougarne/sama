@@ -128,3 +128,11 @@ with Origin/CSRF. The issuer comes from installation configuration. Owners/admin
 may invite within their current ceiling; at most 100 unexpired invitations exist
 per workspace. The response contains a random one-use `token`, shown only once
 for manual sharing, valid 24 hours. Only its digest is stored; no email is sent.
+
+To accept an invitation, `POST /auth/login` with JSON `{invitation}` and the
+configured Origin. Proof stays out of URLs and is bound to the one-use browser
+challenge. This preauthentication initiation creates no membership/session.
+Verified callback must match the exact issuer/subject; it rechecks the inviter's
+current membership version and ceiling, then consumes proof, creates admission,
+session and audit atomically. Expired/replayed/mismatched proof fails closed.
+Existing members use explicit membership changes; invitations do not overwrite roles.

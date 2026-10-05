@@ -16,7 +16,10 @@ type Challenges struct {
 	pool *pgxpool.Pool
 	now  func() time.Time
 }
-type Challenge struct{ State, Browser, Nonce, Verifier string }
+type Challenge struct {
+	State, Browser, Nonce, Verifier string
+	InvitationDigest                []byte
+}
 
 func NewChallenges(pool *pgxpool.Pool, now func() time.Time) *Challenges {
 	return &Challenges{pool: pool, now: now}
@@ -25,6 +28,17 @@ func NewChallenges(pool *pgxpool.Pool, now func() time.Time) *Challenges {
 // Start caps installation-wide issuance at 30/minute and 1000 stored challenges.
 // A transaction lock keeps the count and insertion atomic across replicas.
 func (c *Challenges) Start(ctx context.Context) (Challenge, error) {
+	return c.start(ctx, nil)
+}
+
+func (c *Challenges) StartInvitation(ctx context.Context, proof string) (Challenge, error) {
+	digest, ok := tokenDigest(proof)
+	if !ok {
+		return Challenge{}, ErrUnauthenticated
+	}
+	return c.start(ctx, digest)
+}
+func (c *Challenges) start(ctx context.Context, invitation []byte) (Challenge, error) {
 	var challenge Challenge
 	fields := []*string{&challenge.State, &challenge.Browser, &challenge.Nonce, &challenge.Verifier}
 	for _, field := range fields {
@@ -72,7 +86,7 @@ func (c *Challenges) Start(ctx context.Context) (Challenge, error) {
 	}
 	state, _ := tokenDigest(challenge.State)
 	browser, _ := tokenDigest(challenge.Browser)
-	if _, err := tx.Exec(ctx, `INSERT INTO login_challenges VALUES($1,$2,$3,$4,$5,$6)`, state, browser, challenge.Nonce, challenge.Verifier, now, now.Add(5*time.Minute)); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO login_challenges(state_digest,browser_digest,nonce,verifier,created_at,expires_at,invitation_digest) VALUES($1,$2,$3,$4,$5,$6,$7)`, state, browser, challenge.Nonce, challenge.Verifier, now, now.Add(5*time.Minute), invitation); err != nil {
 		return Challenge{}, ErrStore
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -90,7 +104,7 @@ func (c *Challenges) Consume(ctx context.Context, state, browser string) (Challe
 		return Challenge{}, ErrUnauthenticated
 	}
 	var result Challenge
-	err := c.pool.QueryRow(ctx, `DELETE FROM login_challenges WHERE state_digest=$1 AND browser_digest=$2 AND expires_at>$3 RETURNING nonce,verifier`, stateHash, browserHash, c.now().UTC()).Scan(&result.Nonce, &result.Verifier)
+	err := c.pool.QueryRow(ctx, `DELETE FROM login_challenges WHERE state_digest=$1 AND browser_digest=$2 AND expires_at>$3 RETURNING nonce,verifier,invitation_digest`, stateHash, browserHash, c.now().UTC()).Scan(&result.Nonce, &result.Verifier, &result.InvitationDigest)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Challenge{}, ErrUnauthenticated
 	}

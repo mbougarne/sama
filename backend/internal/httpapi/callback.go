@@ -10,6 +10,7 @@ import (
 	"sama/backend/internal/audit"
 	"sama/backend/internal/identity"
 	"sama/backend/internal/platform"
+	"sama/backend/internal/workspace"
 )
 
 func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +41,16 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
+	if len(challenge.InvitationDigest) > 0 {
+		err := workspace.RedeemInvitation(r.Context(), tx, challenge.InvitationDigest, token.Issuer, token.Subject, RequestID(r.Context()), time.Now())
+		if err != nil {
+			if errors.Is(err, workspace.ErrStore) {
+				err = identity.ErrStore
+			}
+			a.loginFailure(w, r, err)
+			return
+		}
+	}
 	var user, workspace uuid.UUID
 	err = tx.QueryRow(r.Context(), `SELECT u.id,m.workspace_id FROM users u
  JOIN memberships m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id

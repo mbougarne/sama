@@ -17,11 +17,12 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"sama/backend/internal/httpapi"
 	"sama/backend/internal/identity"
+	"sama/backend/internal/workspace"
 )
 
 func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 	pool := identityDatabase(t)
-	user, _ := seedIdentity(t, pool)
+	user, scope := seedIdentity(t, pool)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +55,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 				return
 			}
 			subject, n := user.String(), nonce
-			if code == "unknown" {
+			if code == "unknown" || strings.HasPrefix(code, "invited") {
 				subject = "unknown-identity"
 			}
 			if code == "bad-nonce" {
@@ -89,11 +90,36 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 	// Token transport uses a synthetic loopback issuer; exercise production cookies.
 	o.Config.Development = false
 	handler := httpapi.NewHandler(&httpapi.Auth{OIDC: o, Challenges: challenges, Sessions: sessions, Pool: pool})
-	for _, code := range []string{"bad-code", "bad-nonce", "unknown", "good", "audit-failure"} {
+	proof, err := workspace.IssueInvitation(context.Background(), pool, user, scope, server.URL, "unknown-identity", "viewer", "invite", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, code := range []string{"bad-code", "bad-nonce", "unknown", "good", "invite-mismatch", "invited-good", "invited-replay", "audit-failure"} {
 		t.Run(code, func(t *testing.T) {
 			c, err := challenges.Start(context.Background())
 			if err != nil {
 				t.Fatal(err)
+			}
+			if strings.HasPrefix(code, "invite") {
+				request := httptest.NewRequest("POST", "/auth/login", strings.NewReader(`{"invitation":"`+proof+`"}`))
+				request.Header.Set("Origin", o.Config.PublicOrigin)
+				request.Header.Set("Content-Type", "application/json")
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, request)
+				if response.Code != 302 {
+					t.Fatal("invited initiation", response.Body.String())
+				}
+				location, _ := url.Parse(response.Header().Get("Location"))
+				c.State = location.Query().Get("state")
+				for _, cookie := range response.Result().Cookies() {
+					if cookie.Name == "__Host-sama_login" {
+						c.Browser = cookie.Value
+					}
+				}
+				digest, _ := workspace.InvitationDigest(c.State)
+				if err := pool.QueryRow(context.Background(), `SELECT nonce,verifier FROM login_challenges WHERE state_digest=$1`, digest).Scan(&c.Nonce, &c.Verifier); err != nil {
+					t.Fatal(err)
+				}
 			}
 			nonce, verifier = c.Nonce, c.Verifier
 			failAudit = code == "audit-failure"
@@ -108,7 +134,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
 			want := 401
-			if code == "good" {
+			if code == "good" || code == "invited-good" {
 				want = 302
 			}
 			if failAudit {
@@ -120,7 +146,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 			if strings.Contains(recorder.Body.String(), "synthetic-access") {
 				t.Fatal("OIDC token leaked")
 			}
-			if code == "good" {
+			if code == "good" || code == "invited-good" {
 				var session *http.Cookie
 				for _, cookie := range recorder.Result().Cookies() {
 					if cookie.Name == "__Host-sama_session" {
@@ -148,7 +174,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM audit_events WHERE event_type='auth.login'`).Scan(&audits); err != nil {
 		t.Fatal(err)
 	}
-	if count != 1 || audits != 1 {
+	if count != 2 || audits != 2 {
 		t.Fatalf("nonadmitted/failed audit login persisted: sessions=%d audits=%d", count, audits)
 	}
 }

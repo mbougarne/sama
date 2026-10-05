@@ -31,7 +31,8 @@ export interface paths {
     /** Start a bounded OIDC login with a one-use browser-bound challenge */
     get: operations['startLogin'];
     put?: never;
-    post?: never;
+    /** Bind invitation proof to the browser challenge; admission waits for verified OIDC callback */
+    post: operations['startInvitedLogin'];
     delete?: never;
     options?: never;
     head?: never;
@@ -318,6 +319,33 @@ export interface operations {
         headers: {
           Location?: string;
           'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  startInvitedLogin: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          invitation: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Browser-bound OIDC redirect. This preauthentication initiation requires configured Origin and JSON; it creates no session or membership. */
+      302: {
+        headers: {
           [name: string]: unknown;
         };
         content?: never;
