@@ -31,7 +31,24 @@ export interface paths {
     /** Start a bounded OIDC login with a one-use browser-bound challenge */
     get: operations['startLogin'];
     put?: never;
-    post?: never;
+    /** Bind invitation proof to the browser challenge; admission waits for verified OIDC callback */
+    post: operations['startInvitedLogin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/auth/reauthenticate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['reauthenticate'];
     delete?: never;
     options?: never;
     head?: never;
@@ -104,10 +121,90 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/workspaces/{workspace_id}/members': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['listMembers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/members/{user_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put: operations['assignMember'];
+    post?: never;
+    delete: operations['removeMember'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/ownership-transfers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['transferOwnership'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/invitations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['issueInvitation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    Member: {
+      /** Format: uuid */
+      user_id: string;
+      display_name: string;
+      /** @enum {string} */
+      role: 'viewer' | 'operator' | 'admin' | 'owner';
+      version: number;
+    };
+    MemberPage: {
+      data: components['schemas']['Member'][];
+      /** Format: uuid */
+      next_cursor: string | null;
+    };
     User: {
       /** Format: uuid */
       id: string;
@@ -134,9 +231,12 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
+      status: 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
+        | 'reauthentication_unsupported'
+        | 'recent_authentication_required'
+        | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
         | 'invalid_workspace'
@@ -237,6 +337,59 @@ export interface operations {
         headers: {
           Location?: string;
           'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  startInvitedLogin: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          invitation: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Browser-bound OIDC redirect. This preauthentication initiation requires configured Origin and JSON; it creates no session or membership. */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  reauthenticate: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Session-bound OIDC redirect using prompt=login, max_age=0 and configured ACR. Callback requires fresh auth_time and rotates the same identity's session. */
+      302: {
+        headers: {
           [name: string]: unknown;
         };
         content?: never;
@@ -361,6 +514,167 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Workspace'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  listMembers: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Owners see all members; admins see viewer/operator members, ordered by user UUID. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['MemberPage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  assignMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          version: number;
+          /** @enum {string} */
+          role: 'viewer' | 'operator' | 'admin' | 'owner';
+        };
+      };
+    };
+    responses: {
+      /** @description Membership and audit committed; stale versions or final-owner removal return 409. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  removeMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          version: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Membership and audit committed; stale versions or final-owner removal return 409. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  transferOwnership: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          user_id: string;
+          actor_version: number;
+          target_version: number;
+          /** @default false */
+          demote?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Current member becomes owner; caller optionally becomes admin. Both version preconditions must match. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  issueInvitation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          subject: string;
+          /** @enum {string} */
+          role: 'viewer' | 'operator' | 'admin' | 'owner';
+        };
+      };
+    };
+    responses: {
+      /** @description One-use invitation for the configured issuer, valid 24 hours. Share manually; proof is returned only once. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            token: string;
+          };
         };
       };
       default: components['responses']['Problem'];

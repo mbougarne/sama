@@ -49,6 +49,45 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+    post:
+      operationId: startInvitedLogin
+      summary: Bind invitation proof to the browser challenge; admission waits for verified OIDC callback
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [invitation]
+              properties:
+                invitation: {type: string, minLength: 43, maxLength: 43}
+      responses:
+        '302':
+          description: Browser-bound OIDC redirect. This preauthentication initiation requires configured Origin and JSON; it creates no session or membership.
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /auth/reauthenticate:
+    post:
+      operationId: reauthenticate
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '302':
+          description: Session-bound OIDC redirect using prompt=login, max_age=0 and configured ACR. Callback requires fresh auth_time and rotates the same identity's session.
+        default:
+          $ref: '#/components/responses/Problem'
+
   /auth/callback:
     get:
       operationId: finishLogin
@@ -137,6 +176,131 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/v1/workspaces/{workspace_id}/members:
+    get:
+      operationId: listMembers
+      security: [{session: []}]
+      parameters:
+        - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: cursor, in: query, schema: {type: string, format: uuid}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      responses:
+        '200':
+          description: Owners see all members; admins see viewer/operator members, ordered by user UUID.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/MemberPage'}
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /api/v1/workspaces/{workspace_id}/members/{user_id}:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: user_id, in: path, required: true, schema: {type: string, format: uuid}}
+    put:
+      operationId: assignMember
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role, version]
+              properties:
+                version: {type: integer, minimum: 0}
+                role: {type: string, enum: [viewer, operator, admin, owner]}
+      responses:
+        '204':
+          description: Membership and audit committed; stale versions or final-owner removal return 409.
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      operationId: removeMember
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version]
+              properties:
+                version: {type: integer, minimum: 0}
+      responses:
+        '204':
+          description: Membership and audit committed; stale versions or final-owner removal return 409.
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /api/v1/workspaces/{workspace_id}/ownership-transfers:
+    post:
+      operationId: transferOwnership
+      security: [{session: []}]
+      parameters:
+        - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [user_id, actor_version, target_version]
+              properties:
+                user_id: {type: string, format: uuid}
+                actor_version: {type: integer, minimum: 1}
+                target_version: {type: integer, minimum: 1}
+                demote: {type: boolean, default: false}
+      responses:
+        '204':
+          description: Current member becomes owner; caller optionally becomes admin. Both version preconditions must match.
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /api/v1/workspaces/{workspace_id}/invitations:
+    post:
+      operationId: issueInvitation
+      security: [{session: []}]
+      parameters:
+        - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [subject, role]
+              properties:
+                subject: {type: string, minLength: 1, maxLength: 255}
+                role: {type: string, enum: [viewer, operator, admin, owner]}
+      responses:
+        '201':
+          description: One-use invitation for the configured issuer, valid 24 hours. Share manually; proof is returned only once.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [token]
+                properties:
+                  token: {type: string, minLength: 43, maxLength: 43}
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     session: {type: apiKey, in: cookie, name: __Host-sama_session}
@@ -200,6 +364,22 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    Member:
+      type: object
+      additionalProperties: false
+      required: [user_id, display_name, role, version]
+      properties:
+        user_id: {type: string, format: uuid}
+        display_name: {type: string, maxLength: 200}
+        role: {type: string, enum: [viewer, operator, admin, owner]}
+        version: {type: integer, minimum: 1}
+    MemberPage:
+      type: object
+      required: [data, next_cursor]
+      additionalProperties: false
+      properties:
+        data: {type: array, maxItems: 200, items: {$ref: '#/components/schemas/Member'}}
+        next_cursor: {type: [string, 'null'], format: uuid}
     User:
       type: object
       additionalProperties: false
@@ -249,6 +429,7 @@ components:
         status:
           type: integer
           enum:
+            - 409
             - 422
             - 403
             - 401
@@ -260,6 +441,9 @@ components:
         code:
           type: string
           enum:
+            - reauthentication_unsupported
+            - recent_authentication_required
+            - membership_conflict
             - not_found
             - method_not_allowed
             - invalid_workspace

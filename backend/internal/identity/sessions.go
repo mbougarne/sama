@@ -34,6 +34,7 @@ type Principal struct {
 	UserID          uuid.UUID
 	AuthenticatedAt time.Time
 	CSRFHash        []byte
+	Reauthenticated bool
 }
 
 type Credential struct{ Token, CSRF string }
@@ -113,7 +114,7 @@ func (s *Sessions) Resolve(ctx context.Context, token string) (Principal, error)
  idle_expires_at=LEAST(s.absolute_expires_at,GREATEST(s.idle_expires_at,$3))
  FROM users u WHERE s.token_digest=$1 AND u.id=s.user_id AND u.disabled_at IS NULL
  AND s.idle_expires_at>$2 AND s.absolute_expires_at>$2
- RETURNING s.user_id,s.authenticated_at,s.csrf_digest`, digest, now, now.Add(s.policy.Idle)).Scan(&p.UserID, &p.AuthenticatedAt, &p.CSRFHash)
+ RETURNING s.user_id,s.authenticated_at,s.csrf_digest,s.reauthenticated`, digest, now, now.Add(s.policy.Idle)).Scan(&p.UserID, &p.AuthenticatedAt, &p.CSRFHash, &p.Reauthenticated)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Principal{}, ErrUnauthenticated
 	}

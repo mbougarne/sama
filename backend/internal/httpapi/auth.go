@@ -1,9 +1,13 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"io"
+	"mime"
 	"net/http"
+	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -19,7 +23,7 @@ type Auth struct {
 }
 
 func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		writeProblem(w, r, 405, "method_not_allowed", "Method Not Allowed")
 		return
 	}
@@ -27,9 +31,32 @@ func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, r, 400, "invalid_request", "Bad Request")
 		return
 	}
-	challenge, err := a.Challenges.Start(r.Context())
+	var challenge identity.Challenge
+	var err error
+	if r.Method == http.MethodPost {
+		media, _, mediaErr := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if mediaErr != nil || media != "application/json" || r.Header.Get("Origin") != strings.TrimSuffix(a.OIDC.Config.PublicOrigin, "/") {
+			writeProblem(w, r, 403, "permission_denied", "Forbidden")
+			return
+		}
+		var input struct {
+			Invitation string `json:"invitation"`
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&input) != nil || decoder.Decode(new(any)) != io.EOF {
+			writeProblem(w, r, 400, "invalid_request", "Bad Request")
+			return
+		}
+		challenge, err = a.Challenges.StartInvitation(r.Context(), input.Invitation)
+	} else {
+		challenge, err = a.Challenges.Start(r.Context())
+	}
 	if err != nil {
 		status, code := 503, "identity_unavailable"
+		if errors.Is(err, identity.ErrUnauthenticated) {
+			status, code = 400, "invalid_request"
+		}
 		if errors.Is(err, identity.ErrRateLimited) {
 			status, code = 429, "rate_limited"
 			w.Header().Set("Retry-After", "60")

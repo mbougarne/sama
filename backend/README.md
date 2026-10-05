@@ -106,3 +106,50 @@ characters, no control characters or outer whitespace; unknown fields and bodies
 above 1 KiB are rejected. Creation commits the workspace, creator owner membership
 and audit together. A per-user row lock enforces at most ten owned workspaces,
 including concurrent requests. Invalid names return 422 and the limit returns 429.
+
+`GET /api/v1/workspaces/{workspace_id}/members` lists safe membership metadata
+in user UUID order (default 50, maximum 200). Owners see all roles; admins see
+viewer/operator members within their management ceiling. Other roles are denied.
+Cursors select a position only and never expand workspace access.
+
+`PUT /api/v1/workspaces/{workspace_id}/members/{user_id}` accepts `{role,version}`;
+version 0 assigns an existing admitted identity. `DELETE` accepts `{version}`.
+Both require Origin/CSRF, recheck current authority under a workspace lock, reject
+stale versions/final-owner removal with 409, and commit audit atomically.
+Admins can manage only viewer/operator members; only owners assign higher roles.
+
+`POST /api/v1/workspaces/{workspace_id}/ownership-transfers` requires an owner,
+Origin/CSRF and `{user_id,actor_version,target_version,demote}`. The target must
+already be a current member. Optional `demote: true` makes the caller an admin;
+the grant, demotion and both affected-member audit events commit together.
+
+`POST /api/v1/workspaces/{workspace_id}/invitations` accepts `{subject,role}`
+with Origin/CSRF. The issuer comes from installation configuration. Owners/admins
+may invite within their current ceiling; at most 100 unexpired invitations exist
+per workspace. The response contains a random one-use `token`, shown only once
+for manual sharing, valid 24 hours. Only its digest is stored; no email is sent.
+
+To accept an invitation, `POST /auth/login` with JSON `{invitation}` and the
+configured Origin. Proof stays out of URLs and is bound to the one-use browser
+challenge. This preauthentication initiation creates no membership/session.
+Verified callback must match the exact issuer/subject; it rechecks the inviter's
+current membership version and ceiling, then consumes proof, creates admission,
+session and audit atomically. Expired/replayed/mismatched proof fails closed.
+Existing members use explicit membership changes; invitations do not overwrite roles.
+
+For high-impact reauthentication, explicitly set `SAMA_OIDC_REAUTH_ACR` to the
+reviewed issuer authentication policy (including MFA where required). Discovery
+must advertise that ACR and `auth_time`; otherwise reauthentication fails closed.
+The reusable five-minute gate accepts only a verified reauthentication round trip,
+never a fresh token `iat` alone. Sessions predating this feature require reauthentication.
+
+`POST /auth/reauthenticate` accepts `{}` with Origin/CSRF and an active session.
+It requests `prompt=login`, `max_age=0` and the configured ACR. Callback verifies
+signed `auth_time` is no earlier than initiation (whole-second precision), less
+than five minutes old and not in the future, with exact ACR equality. The original
+session must remain active, browser-bound and owned by the same verified identity.
+Successful reauthentication rotates session/CSRF with login audit; workspace roles
+remain server-authoritative. An unsupported policy returns an explanatory 403.
+See [OIDC authentication requests](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest).
+Membership grants and role elevation revoke the affected user's existing sessions;
+their next login issues a new credential before newly granted authority is used.

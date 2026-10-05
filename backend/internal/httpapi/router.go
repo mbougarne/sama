@@ -45,6 +45,10 @@ func NewHandler(auth ...*Auth) http.Handler {
 			auth[0].logout(w, r)
 			return
 		}
+		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/reauthenticate" {
+			auth[0].Protect(http.HandlerFunc(auth[0].reauthenticate), "viewer").ServeHTTP(w, r)
+			return
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			protected.ServeHTTP(w, r)
 			return

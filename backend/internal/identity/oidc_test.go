@@ -24,7 +24,7 @@ func syntheticIssuer(t *testing.T) (*httptest.Server, *rsa.PrivateKey) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
-			json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}})
+			json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}, "claims_supported": []string{"auth_time"}, "acr_values_supported": []string{"fixture-mfa"}})
 		case "/keys":
 			json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "synthetic", Algorithm: "RS256", Use: "sig"}}})
 		default:
