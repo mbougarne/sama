@@ -202,6 +202,33 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /api/v1/workspaces/{workspace_id}/ownership-transfers:
+    post:
+      operationId: transferOwnership
+      security: [{session: []}]
+      parameters:
+        - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [user_id, actor_version, target_version]
+              properties:
+                user_id: {type: string, format: uuid}
+                actor_version: {type: integer, minimum: 1}
+                target_version: {type: integer, minimum: 1}
+                demote: {type: boolean, default: false}
+      responses:
+        '204':
+          description: Current member becomes owner; caller optionally becomes admin. Both version preconditions must match.
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     session: {type: apiKey, in: cookie, name: __Host-sama_session}

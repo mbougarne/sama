@@ -139,6 +139,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/workspaces/{workspace_id}/ownership-transfers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['transferOwnership'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -496,6 +512,41 @@ export interface operations {
     };
     responses: {
       /** @description Membership and audit committed; stale versions or final-owner removal return 409. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  transferOwnership: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          user_id: string;
+          actor_version: number;
+          target_version: number;
+          /** @default false */
+          demote?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Current member becomes owner; caller optionally becomes admin. Both version preconditions must match. */
       204: {
         headers: {
           [name: string]: unknown;

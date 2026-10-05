@@ -18,6 +18,10 @@ func (a *Auth) memberRoutes(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	suffix := strings.TrimPrefix(r.URL.Path, "/api/v1/workspaces/"+m.WorkspaceID.String())
+	if suffix == "/ownership-transfers" {
+		a.transferOwnership(w, r, m)
+		return true
+	}
 	if target, ok := strings.CutPrefix(suffix, "/members/"); ok {
 		a.changeMember(w, r, m, target)
 		return true

@@ -117,3 +117,8 @@ version 0 assigns an existing admitted identity. `DELETE` accepts `{version}`.
 Both require Origin/CSRF, recheck current authority under a workspace lock, reject
 stale versions/final-owner removal with 409, and commit audit atomically.
 Admins can manage only viewer/operator members; only owners assign higher roles.
+
+`POST /api/v1/workspaces/{workspace_id}/ownership-transfers` requires an owner,
+Origin/CSRF and `{user_id,actor_version,target_version,demote}`. The target must
+already be a current member. Optional `demote: true` makes the caller an admin;
+the grant, demotion and both affected-member audit events commit together.
