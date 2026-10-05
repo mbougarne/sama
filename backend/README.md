@@ -142,3 +142,12 @@ reviewed issuer authentication policy (including MFA where required). Discovery
 must advertise that ACR and `auth_time`; otherwise reauthentication fails closed.
 The reusable five-minute gate accepts only a verified reauthentication round trip,
 never a fresh token `iat` alone. Sessions predating this feature require reauthentication.
+
+`POST /auth/reauthenticate` accepts `{}` with Origin/CSRF and an active session.
+It requests `prompt=login`, `max_age=0` and the configured ACR. Callback verifies
+signed `auth_time` is no earlier than initiation (whole-second precision), less
+than five minutes old and not in the future, with exact ACR equality. The original
+session must remain active, browser-bound and owned by the same verified identity.
+Successful reauthentication rotates session/CSRF with login audit; workspace roles
+remain server-authoritative. An unsupported policy returns an explanatory 403.
+See [OIDC authentication requests](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest).

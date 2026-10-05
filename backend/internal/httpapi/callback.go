@@ -79,7 +79,17 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 	if old, err := r.Cookie(a.cookie("session", "", 0).Name); err == nil {
 		previous = old.Value
 	}
-	credential, err := a.Sessions.Create(r.Context(), tx, user, authenticated, previous)
+	var credential identity.Credential
+	if len(challenge.SessionDigest) > 0 {
+		authenticated, err = a.OIDC.AuthenticationTime(token, challenge.StartedAt)
+		if err != nil {
+			a.loginFailure(w, r, err)
+			return
+		}
+		credential, err = a.Sessions.RotateRecent(r.Context(), tx, user, authenticated, previous, challenge.SessionDigest)
+	} else {
+		credential, err = a.Sessions.Create(r.Context(), tx, user, authenticated, previous)
+	}
 	if err != nil {
 		a.loginFailure(w, r, err)
 		return
@@ -105,6 +115,14 @@ func (a *Auth) callback(w http.ResponseWriter, r *http.Request) {
 
 func (a *Auth) loginFailure(w http.ResponseWriter, r *http.Request, err error) {
 	status, code := 401, "unauthenticated"
+	if errors.Is(err, identity.ErrReauthUnsupported) {
+		writeProblem(w, r, 403, "reauthentication_unsupported", "Issuer reauthentication policy is not configured or supported")
+		return
+	}
+	if errors.Is(err, identity.ErrRecentRequired) {
+		writeProblem(w, r, 403, "recent_authentication_required", "Recent authentication required")
+		return
+	}
 	if errors.Is(err, identity.ErrStore) {
 		status, code = 503, "identity_unavailable"
 	}

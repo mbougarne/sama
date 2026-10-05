@@ -39,6 +39,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/auth/reauthenticate': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['reauthenticate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/auth/callback': {
     parameters: {
       query?: never;
@@ -218,6 +234,8 @@ export interface components {
       status: 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
+        | 'reauthentication_unsupported'
+        | 'recent_authentication_required'
         | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
@@ -344,6 +362,32 @@ export interface operations {
     };
     responses: {
       /** @description Browser-bound OIDC redirect. This preauthentication initiation requires configured Origin and JSON; it creates no session or membership. */
+      302: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  reauthenticate: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Session-bound OIDC redirect using prompt=login, max_age=0 and configured ACR. Callback requires fresh auth_time and rotates the same identity's session. */
       302: {
         headers: {
           [name: string]: unknown;

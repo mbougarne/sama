@@ -29,7 +29,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 	}
 	now := time.Now().UTC().Truncate(time.Second)
 	challenges := identity.NewChallenges(pool, func() time.Time { return now })
-	sessions, err := identity.NewSessions(pool, identity.DefaultSessionPolicy(), func() time.Time { return now })
+	sessions, err := identity.NewSessions(pool, identity.DefaultSessionPolicy(), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
-			json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys"})
+			json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys", "claims_supported": []string{"auth_time"}, "acr_values_supported": []string{"fixture-mfa"}})
 		case "/keys":
 			json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "fixture", Algorithm: "RS256", Use: "sig"}}})
 		case "/token":
@@ -55,13 +55,26 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 				return
 			}
 			subject, n := user.String(), nonce
-			if code == "unknown" || strings.HasPrefix(code, "invited") {
+			if code == "unknown" || strings.HasPrefix(code, "invited") || code == "reauth-switch" {
 				subject = "unknown-identity"
 			}
 			if code == "bad-nonce" {
 				n = "incorrect"
 			}
 			claims := map[string]any{"iss": server.URL, "sub": subject, "aud": "fixture", "exp": now.Add(time.Hour).Unix(), "iat": now.Unix(), "nonce": n, "email": "same-email@example.invalid"}
+			if strings.HasPrefix(code, "reauth") {
+				claims["auth_time"] = time.Now().Unix()
+				claims["acr"] = "fixture-mfa"
+				if code == "reauth-stale" {
+					claims["auth_time"] = now.Add(-5 * time.Minute).Unix()
+				}
+				if code == "reauth-policy" {
+					claims["acr"] = "wrong"
+				}
+				if code == "reauth-missing" {
+					delete(claims, "auth_time")
+				}
+			}
 			signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, nil)
 			if err != nil {
 				t.Error(err)
@@ -83,7 +96,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 	if _, err := pool.Exec(context.Background(), `UPDATE users SET issuer=$1 WHERE id=$2`, server.URL, user); err != nil {
 		t.Fatal(err)
 	}
-	o, err := identity.NewOIDC(context.Background(), identity.OIDCConfig{Issuer: server.URL, ClientID: "fixture", PublicOrigin: "http://127.0.0.1:8080", Development: true}, func() time.Time { return now })
+	o, err := identity.NewOIDC(context.Background(), identity.OIDCConfig{Issuer: server.URL, ClientID: "fixture", PublicOrigin: "http://127.0.0.1:8080", Development: true, ReauthACR: "fixture-mfa"}, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,6 +180,81 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 			}
 		})
 	}
+	if _, err := pool.Exec(context.Background(), `ALTER TABLE audit_events DROP CONSTRAINT reject_login`); err != nil {
+		t.Fatal(err)
+	}
+	for _, code := range []string{"reauth-stale", "reauth-policy", "reauth-missing", "reauth-switch", "reauth-revoked", "reauth-good"} {
+		t.Run(code, func(t *testing.T) {
+			old := issueSession(t, sessions, pool, user, now, "")
+			request := httptest.NewRequest("POST", "/auth/reauthenticate", strings.NewReader(`{}`))
+			request.AddCookie(&http.Cookie{Name: "__Host-sama_session", Value: old.Token})
+			request.Header.Set("Origin", o.Config.PublicOrigin)
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("X-CSRF-Token", old.CSRF)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != 302 {
+				t.Fatal("reauth initiation", response.Body.String())
+			}
+			location, _ := url.Parse(response.Header().Get("Location"))
+			query := location.Query()
+			if query.Get("prompt") != "login" || query.Get("max_age") != "0" || query.Get("acr_values") != "fixture-mfa" {
+				t.Fatal("reauthentication policy parameters")
+			}
+			var browser string
+			for _, cookie := range response.Result().Cookies() {
+				if cookie.Name == "__Host-sama_login" {
+					browser = cookie.Value
+				}
+			}
+			digest, _ := workspace.InvitationDigest(query.Get("state"))
+			if err := pool.QueryRow(context.Background(), `SELECT nonce,verifier FROM login_challenges WHERE state_digest=$1`, digest).Scan(&nonce, &verifier); err != nil {
+				t.Fatal(err)
+			}
+			if code == "reauth-revoked" {
+				if err := sessions.Revoke(context.Background(), old.Token); err != nil {
+					t.Fatal(err)
+				}
+			}
+			callback := httptest.NewRequest("GET", "/auth/callback?"+url.Values{"state": {query.Get("state")}, "code": {code}}.Encode(), nil)
+			callback.AddCookie(&http.Cookie{Name: "__Host-sama_login", Value: browser})
+			callback.AddCookie(&http.Cookie{Name: "__Host-sama_session", Value: old.Token})
+			result := httptest.NewRecorder()
+			handler.ServeHTTP(result, callback)
+			want := 403
+			if code == "reauth-good" {
+				want = 302
+			}
+			if code == "reauth-switch" || code == "reauth-revoked" {
+				want = 401
+			}
+			if result.Code != want {
+				t.Fatalf("reauth status %d want %d: %s", result.Code, want, result.Body.String())
+			}
+			if code == "reauth-good" {
+				if _, err := sessions.Resolve(context.Background(), old.Token); err != identity.ErrUnauthenticated {
+					t.Fatal("old session survived")
+				}
+				for _, cookie := range result.Result().Cookies() {
+					if cookie.Name == "__Host-sama_session" {
+						p, err := sessions.Resolve(context.Background(), cookie.Value)
+						if err != nil || sessions.RequireRecent(p) != nil {
+							t.Fatal("rotated session not recent", err)
+						}
+						if _, err := workspace.ResolveMembership(context.Background(), pool, p.UserID, scope, "owner"); err != nil {
+							t.Fatal("workspace authority lost")
+						}
+					}
+				}
+			}
+			replay := httptest.NewRecorder()
+			handler.ServeHTTP(replay, callback)
+			if replay.Code != 401 {
+				t.Fatal("reauth replay accepted")
+			}
+		})
+	}
+
 	var count, audits int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM sessions`).Scan(&count); err != nil {
 		t.Fatal(err)
@@ -174,7 +262,7 @@ func TestOIDCCallbackAdmissionBindingAndAudit(t *testing.T) {
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM audit_events WHERE event_type='auth.login'`).Scan(&audits); err != nil {
 		t.Fatal(err)
 	}
-	if count != 2 || audits != 2 {
+	if count != 7 || audits != 3 {
 		t.Fatalf("nonadmitted/failed audit login persisted: sessions=%d audits=%d", count, audits)
 	}
 }

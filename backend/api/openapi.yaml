@@ -70,6 +70,24 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /auth/reauthenticate:
+    post:
+      operationId: reauthenticate
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '302':
+          description: Session-bound OIDC redirect using prompt=login, max_age=0 and configured ACR. Callback requires fresh auth_time and rotates the same identity's session.
+        default:
+          $ref: '#/components/responses/Problem'
+
   /auth/callback:
     get:
       operationId: finishLogin
@@ -423,6 +441,8 @@ components:
         code:
           type: string
           enum:
+            - reauthentication_unsupported
+            - recent_authentication_required
             - membership_conflict
             - not_found
             - method_not_allowed
