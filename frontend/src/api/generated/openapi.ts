@@ -260,6 +260,7 @@ export interface components {
       code:
         | 'reauthentication_unsupported'
         | 'recent_authentication_required'
+        | 'policy_conflict'
         | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
