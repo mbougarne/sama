@@ -275,6 +275,12 @@ export interface components {
         | 'invalid_request'
         | 'rate_limited'
         | 'identity_unavailable';
+      /** @description Optional safe validation codes for allowlisted input fields; never provider messages. */
+      errors?: {
+        field: string;
+        /** @enum {string} */
+        code: 'required' | 'invalid' | 'out_of_range';
+      }[];
       request_id: string;
     };
   };

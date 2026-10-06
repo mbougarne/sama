@@ -183,3 +183,19 @@ Origin, callback or cookie policy, and forwarding headers are removed downstream
 
 Logout accepts an empty body or an empty JSON object; unknown fields and trailing
 JSON values are rejected even when no session remains.
+
+All HTTP responses carry a strict same-origin CSP: no inline/eval/third-party
+scripts or styles, objects, frames, framing ancestors, or base changes. Other
+headers deny framing, MIME sniffing, referrer disclosure, camera, microphone and
+geolocation. TLS/HSTS termination remains deployment-owned. Production Webpack
+builds verify external hashed scripts and extracted CSS against this policy.
+
+Set `SAMA_ASSET_DIR` to the independently built `frontend/dist` directory to serve
+the production backoffice from Go. An unset setting keeps API-only behavior;
+startup fails safely if a configured directory lacks a regular `index.html`.
+Build the frontend first; Go never invokes Node or copies source into its build.
+Client routes fall back to the entry document, while API/auth misses stay JSON
+problems. Files are confined through `os.Root`, with no directory listings,
+hidden files or arbitrary text-file serving. Missing assets return 404.
+The entry document uses `no-store`; hashed JS/CSS use one-year immutable caching;
+other allowed assets revalidate. Serve only trusted production build output here.
