@@ -117,3 +117,45 @@ p {
     max-width: 12rem;
   }
 }
+
+.session-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--cloud);
+  border-bottom: 1px solid var(--sky-200);
+  overflow-wrap: anywhere;
+}
+button,
+select,
+input {
+  font: inherit;
+  max-width: 100%;
+}
+button {
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--sky-700);
+  outline-offset: 3px;
+}
+
+.workspace-picker {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+.workspace-picker select {
+  width: 100%;
+  min-width: 0;
+}
+.workspace-name,
+.eyebrow {
+  overflow-wrap: anywhere;
+}

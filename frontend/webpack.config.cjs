@@ -28,6 +28,11 @@ module.exports = (_env, argv) => ({
     host: '127.0.0.1',
     port: 3000,
     historyApiFallback: true,
-    proxy: [{ context: ['/api', '/health'], target: 'http://127.0.0.1:8080' }],
+    proxy: [
+      {
+        context: ['/api', '/auth', '/health'],
+        target: 'http://127.0.0.1:8080',
+      },
+    ],
   },
 });

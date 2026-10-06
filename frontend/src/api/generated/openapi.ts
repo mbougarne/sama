@@ -255,11 +255,15 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
+      status:
+        408 | 413 | 431 | 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'reauthentication_unsupported'
         | 'recent_authentication_required'
+        | 'body_too_large'
+        | 'headers_too_large'
+        | 'request_cancelled'
         | 'policy_conflict'
         | 'membership_conflict'
         | 'not_found'
@@ -271,6 +275,12 @@ export interface components {
         | 'invalid_request'
         | 'rate_limited'
         | 'identity_unavailable';
+      /** @description Optional safe validation codes for allowlisted input fields; never provider messages. */
+      errors?: {
+        field: string;
+        /** @enum {string} */
+        code: 'required' | 'invalid' | 'out_of_range';
+      }[];
       request_id: string;
     };
   };
@@ -508,7 +518,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
     responses: {
       /** @description Session revoked or already absent; session cookie expired. */
       204: {

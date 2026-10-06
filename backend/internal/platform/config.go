@@ -30,6 +30,7 @@ const (
 
 // Config is the immutable process configuration loaded during startup.
 type Config struct {
+	AssetsDir      string
 	HTTPAddr       string
 	PublicOrigin   url.URL
 	Database       DatabaseConfig
@@ -135,7 +136,9 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 		return Config{}, err
 	}
 
+	assetsDir, _ := lookup("SAMA_ASSET_DIR")
 	return Config{
+		AssetsDir:      assetsDir,
 		HTTPAddr:       address,
 		PublicOrigin:   origin,
 		Database:       DatabaseConfig{URL: databaseURL, MigrationURL: migrationDatabaseURL},
