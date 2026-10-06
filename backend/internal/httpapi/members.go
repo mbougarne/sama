@@ -18,6 +18,10 @@ func (a *Auth) memberRoutes(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	suffix := strings.TrimPrefix(r.URL.Path, "/api/v1/workspaces/"+m.WorkspaceID.String())
+	if suffix == "/settings" {
+		a.workspaceSettings(w, r, m)
+		return true
+	}
 	if suffix == "/invitations" {
 		a.issueInvitation(w, r, m)
 		return true

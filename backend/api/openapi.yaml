@@ -10,6 +10,39 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/settings:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkspaceSettings
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Current owner-managed workspace policy.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceSettings'}
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: updateWorkspaceSettings
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkspaceSettings'}
+      responses:
+        '200':
+          description: Settings and audit committed together; stale policy version returns 409.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceSettings'}
+        default:
+          $ref: '#/components/responses/Problem'
   /health:
     get:
       operationId: getHealth
@@ -364,6 +397,15 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    WorkspaceSettings:
+      type: object
+      additionalProperties: false
+      required: [name, policy_version, queue_limit, audit_retention_days]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 100}
+        policy_version: {type: integer, minimum: 1}
+        queue_limit: {type: integer, minimum: 1, maximum: 1000}
+        audit_retention_days: {type: integer, minimum: 180, maximum: 3650}
     Member:
       type: object
       additionalProperties: false

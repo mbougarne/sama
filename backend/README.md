@@ -153,3 +153,13 @@ remain server-authoritative. An unsupported policy returns an explanatory 403.
 See [OIDC authentication requests](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest).
 Membership grants and role elevation revoke the affected user's existing sessions;
 their next login issues a new credential before newly granted authority is used.
+
+Owners can `GET` and `PUT /api/v1/workspaces/{workspace_id}/settings`.
+PUT requires Origin/CSRF and all fields: `name`, current `policy_version`,
+`queue_limit` (1–1000, default 1000), and `audit_retention_days` (180–3650,
+default 180). Changed settings increment policy version and audit atomically;
+a no-op preserves the version, and a stale version returns 409. The version is
+shared with membership policy changes. These stored limits are policy inputs for
+future queue/retention workers; this endpoint does not launch workers or delete
+evidence. Process-wide installation budgets and membership/grant authority remain
+independent, and unresolved-operation/idempotency retention floors still apply.

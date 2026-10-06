@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getWorkspaceSettings'];
+    put: operations['updateWorkspaceSettings'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/health': {
     parameters: {
       query?: never;
@@ -192,6 +210,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    WorkspaceSettings: {
+      name: string;
+      policy_version: number;
+      queue_limit: number;
+      audit_retention_days: number;
+    };
     Member: {
       /** Format: uuid */
       user_id: string;
@@ -297,6 +321,59 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getWorkspaceSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current owner-managed workspace policy. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkspaceSettings'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  updateWorkspaceSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkspaceSettings'];
+      };
+    };
+    responses: {
+      /** @description Settings and audit committed together; stale policy version returns 409. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkspaceSettings'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   getHealth: {
     parameters: {
       query?: never;
