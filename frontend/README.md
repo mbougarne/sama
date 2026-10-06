@@ -55,3 +55,10 @@ loop. Failed sign-out remains visibly unconfirmed. The development proxy include
 When using the local Webpack proxy with synthetic OIDC, configure the backend
 public origin as `http://127.0.0.1:3000` so Origin checks and callbacks match the
 browser origin. Production continues to use one HTTPS origin served through Go.
+
+Authenticated feature data lives in a fresh `QueryScope` per user and workspace.
+Scope replacement cancels/removes the old client's queries and remounts local
+form drafts. Use `scopedKey` with user/workspace UUIDs, feature, and normalized
+resource filters; array filters are treated as sets. No query cache is persisted
+in browser storage. Membership checks stay outside the workspace data scope and
+must finish before it is rendered; keys and cached role hints are not authority.
