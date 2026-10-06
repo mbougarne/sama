@@ -62,9 +62,20 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		}
 		auth = &httpapi.Auth{OIDC: login, Challenges: identity.NewChallenges(pool, time.Now), Sessions: sessions, Pool: pool}
 	}
+	var assets *httpapi.Assets
+	var assetHandler http.Handler
+	if config.AssetsDir != "" {
+		assets, err = httpapi.OpenAssets(config.AssetsDir)
+		if err != nil {
+			return err
+		}
+		defer assets.Close()
+		assetHandler = assets
+	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
-		Handler:           httpapi.NewHandler(auth),
+		Handler:           httpapi.WithClientIP(httpapi.NewAppHandler(auth, assetHandler), config.TrustedProxies),
+		MaxHeaderBytes:    httpapi.MaxHeaderBytes,
 		ReadHeaderTimeout: config.Timeouts.ReadHeader,
 		ReadTimeout:       config.Timeouts.Read,
 		WriteTimeout:      config.Timeouts.Write,

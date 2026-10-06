@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import { Providers } from './app/providers';
 import './styles.css';
+import { SessionGate } from './features/identity/SessionGate';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing application root');
@@ -10,7 +11,7 @@ if (!root) throw new Error('Missing application root');
 createRoot(root).render(
   <StrictMode>
     <Providers>
-      <App />
+      <SessionGate>{(user) => <App user={user} />}</SessionGate>
     </Providers>
   </StrictMode>,
 );
