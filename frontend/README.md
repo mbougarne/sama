@@ -35,3 +35,13 @@ For production-like local smoke checks, build with `pnpm run build`, then set
 `SAMA_ASSET_DIR` to this directory's `dist` when starting Go on an isolated
 loopback port. Go serves the browser and API from one origin with strict CSP;
 Webpack remains a separate build step. No deployed environment is implied.
+
+`src/api/client.ts` is the browser transport. It sends same-origin cookies and
+reads the CSRF cookie only when sending a mutation; it never persists tokens.
+Each request shares one bounded deadline across at most one transient read retry
+with jitter. Mutations and access/validation/conflict/rate-limit failures are not
+retried. Caller cancellation remains distinguishable from deadline expiry.
+Errors expose local safe messages, allowlisted codes/field errors, request IDs and
+bounded retry hints; raw server/provider messages are discarded. A 401 emits the
+session-expiry event for the authentication boundary. Generated types back the
+current-user and workspace-page helpers; routes cannot select another origin.
