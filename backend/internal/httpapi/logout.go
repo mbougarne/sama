@@ -3,19 +3,11 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"mime"
 	"net/http"
-	"strings"
 	"time"
 
 	"sama/backend/internal/identity"
 )
-
-// Mutation requests require the configured origin and session-bound CSRF.
-func (a *Auth) validMutation(r *http.Request, p identity.Principal) bool {
-	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	return err == nil && media == "application/json" && r.Header.Get("Origin") == strings.TrimSuffix(a.OIDC.Config.PublicOrigin, "/") && identity.ValidCSRF(p, r.Header.Get("X-CSRF-Token"))
-}
 
 func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -25,7 +17,7 @@ func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, r, 405, "method_not_allowed", "Method Not Allowed")
 		return
 	}
-	if r.Header.Get("Origin") == "" || r.Header.Get("Origin") != strings.TrimSuffix(a.OIDC.Config.PublicOrigin, "/") {
+	if !a.validOriginJSON(r) {
 		writeProblem(w, r, 403, "permission_denied", "Forbidden")
 		return
 	}

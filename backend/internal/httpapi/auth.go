@@ -5,9 +5,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
-	"mime"
 	"net/http"
-	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -34,8 +32,7 @@ func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 	var challenge identity.Challenge
 	var err error
 	if r.Method == http.MethodPost {
-		media, _, mediaErr := mime.ParseMediaType(r.Header.Get("Content-Type"))
-		if mediaErr != nil || media != "application/json" || r.Header.Get("Origin") != strings.TrimSuffix(a.OIDC.Config.PublicOrigin, "/") {
+		if !a.validOriginJSON(r) {
 			writeProblem(w, r, 403, "permission_denied", "Forbidden")
 			return
 		}

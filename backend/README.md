@@ -163,3 +163,11 @@ shared with membership policy changes. These stored limits are policy inputs for
 future queue/retention workers; this endpoint does not launch workers or delete
 evidence. Process-wide installation budgets and membership/grant authority remain
 independent, and unresolved-operation/idempotency retention floors still apply.
+
+All authenticated mutation routes inherit the same Origin/JSON/session-bound
+CSRF boundary, including newly added routes. Duplicate Origin, Content-Type or
+CSRF headers fail closed. GET/HEAD/OPTIONS cannot be used for domain mutations.
+OIDC login initiation is the preauthentication exception: invitation initiation
+still requires the configured Origin and JSON, then binds proof into the one-use
+browser challenge; callback remains protected by state, nonce and PKCE.
+Even an already-logged-out logout request requires Origin and JSON.
