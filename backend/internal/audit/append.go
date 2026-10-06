@@ -37,6 +37,7 @@ var metadataFields = map[string]map[string]bool{
 	"invitation.created":            {"role": true},
 	"auth.logout":                   {},
 	"auth.login":                    {},
+	"workspace.settings_changed":    {"policy_version": true},
 	"workspace.created":             {},
 	"membership.changed":            {"member_id": true, "role": true},
 	"connection.created":            {"connection_id": true},

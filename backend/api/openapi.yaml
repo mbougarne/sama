@@ -10,6 +10,39 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/settings:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getWorkspaceSettings
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Current owner-managed workspace policy.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceSettings'}
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: updateWorkspaceSettings
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkspaceSettings'}
+      responses:
+        '200':
+          description: Settings and audit committed together; stale policy version returns 409.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkspaceSettings'}
+        default:
+          $ref: '#/components/responses/Problem'
   /health:
     get:
       operationId: getHealth
@@ -108,6 +141,11 @@ paths:
     post:
       operationId: logout
       summary: Revoke the current session and expire its cookie
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
       parameters:
         - {name: Origin, in: header, required: true, schema: {type: string}}
         - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
@@ -364,6 +402,15 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    WorkspaceSettings:
+      type: object
+      additionalProperties: false
+      required: [name, policy_version, queue_limit, audit_retention_days]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 100}
+        policy_version: {type: integer, minimum: 1}
+        queue_limit: {type: integer, minimum: 1, maximum: 1000}
+        audit_retention_days: {type: integer, minimum: 180, maximum: 3650}
     Member:
       type: object
       additionalProperties: false
@@ -429,6 +476,9 @@ components:
         status:
           type: integer
           enum:
+            - 408
+            - 413
+            - 431
             - 409
             - 422
             - 403
@@ -443,6 +493,10 @@ components:
           enum:
             - reauthentication_unsupported
             - recent_authentication_required
+            - body_too_large
+            - headers_too_large
+            - request_cancelled
+            - policy_conflict
             - membership_conflict
             - not_found
             - method_not_allowed
@@ -453,6 +507,17 @@ components:
             - invalid_request
             - rate_limited
             - identity_unavailable
+        errors:
+          type: array
+          maxItems: 20
+          description: Optional safe validation codes for allowlisted input fields; never provider messages.
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code]
+            properties:
+              field: {type: string, minLength: 1, maxLength: 64}
+              code: {type: string, enum: [required, invalid, out_of_range]}
         request_id:
           type: string
           minLength: 1

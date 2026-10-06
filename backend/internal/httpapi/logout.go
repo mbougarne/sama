@@ -2,20 +2,14 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"mime"
+	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"sama/backend/internal/identity"
 )
-
-// Mutation requests require the configured origin and session-bound CSRF.
-func (a *Auth) validMutation(r *http.Request, p identity.Principal) bool {
-	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	return err == nil && media == "application/json" && r.Header.Get("Origin") == strings.TrimSuffix(a.OIDC.Config.PublicOrigin, "/") && identity.ValidCSRF(p, r.Header.Get("X-CSRF-Token"))
-}
 
 func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
@@ -25,8 +19,17 @@ func (a *Auth) logout(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, r, 405, "method_not_allowed", "Method Not Allowed")
 		return
 	}
-	if r.Header.Get("Origin") == "" || r.Header.Get("Origin") != strings.TrimSuffix(a.OIDC.Config.PublicOrigin, "/") {
+	if !a.validOriginJSON(r) {
 		writeProblem(w, r, 403, "permission_denied", "Forbidden")
+		return
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
+	decoder.DisallowUnknownFields()
+	var input *struct{}
+	// Keep empty-body logout compatibility, but never ignore supplied fields.
+	err := decoder.Decode(&input)
+	if err != io.EOF && (err != nil || input == nil || decoder.Decode(new(any)) != io.EOF) {
+		writeProblem(w, r, 400, "invalid_request", "Bad Request")
 		return
 	}
 	cookie, err := r.Cookie(a.cookie("session", "", 0).Name)

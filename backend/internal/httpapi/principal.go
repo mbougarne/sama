@@ -31,6 +31,7 @@ func CurrentMembership(ctx context.Context) (workspace.Membership, bool) {
 // Protect supplies current identity and, for tenant routes, current membership.
 // The transport maps absent scope to 404 and known-scope role denial to 403.
 func (a *Auth) Protect(next http.Handler, minimumRole string) http.Handler {
+	next = a.requireMutation(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()

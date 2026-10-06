@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getWorkspaceSettings'];
+    put: operations['updateWorkspaceSettings'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/health': {
     parameters: {
       query?: never;
@@ -192,6 +210,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    WorkspaceSettings: {
+      name: string;
+      policy_version: number;
+      queue_limit: number;
+      audit_retention_days: number;
+    };
     Member: {
       /** Format: uuid */
       user_id: string;
@@ -231,11 +255,16 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
+      status:
+        408 | 413 | 431 | 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'reauthentication_unsupported'
         | 'recent_authentication_required'
+        | 'body_too_large'
+        | 'headers_too_large'
+        | 'request_cancelled'
+        | 'policy_conflict'
         | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
@@ -246,6 +275,12 @@ export interface components {
         | 'invalid_request'
         | 'rate_limited'
         | 'identity_unavailable';
+      /** @description Optional safe validation codes for allowlisted input fields; never provider messages. */
+      errors?: {
+        field: string;
+        /** @enum {string} */
+        code: 'required' | 'invalid' | 'out_of_range';
+      }[];
       request_id: string;
     };
   };
@@ -297,6 +332,59 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getWorkspaceSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current owner-managed workspace policy. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkspaceSettings'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  updateWorkspaceSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkspaceSettings'];
+      };
+    };
+    responses: {
+      /** @description Settings and audit committed together; stale policy version returns 409. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkspaceSettings'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   getHealth: {
     parameters: {
       query?: never;
@@ -430,7 +518,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
     responses: {
       /** @description Session revoked or already absent; session cookie expired. */
       204: {
