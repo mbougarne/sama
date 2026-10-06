@@ -2,7 +2,7 @@
 
 This is the administrative interface for people managing their cloud services. It is a React browser application built with TypeScript and Webpack. The Go backend owns the browser-facing API, authentication/authorization and provider credentials. Node is development/build tooling; no separate Node BFF server is introduced.
 
-The interface contains an overview route, a not-found route, shared layout, React Router and TanStack Query providers. It contains no fake resource totals, account authentication or cloud actions. Server-data retry policy will be qualified when the first real query is implemented; the scaffold conservatively disables retries.
+The interface checks the current session before showing the overview and shared layout, using React Router and TanStack Query. It contains no fake resource totals or cloud actions. Transport reads have at most one transient retry; query-library and mutation retries remain disabled.
 
 Use Node **24.20.0**, pinned in `.nvmrc` and `package.json`. Use pnpm **10.6.5**, declared in `package.json`; `.npmrc` is also pnpm configuration. From this directory:
 
@@ -13,7 +13,7 @@ pnpm install --frozen-lockfile --ignore-scripts
 pnpm run dev
 ```
 
-The development server binds to `http://127.0.0.1:3000`. `/api` and `/health` proxy to the Go server at `127.0.0.1:8080`. Start the backend separately when using those routes. Webpack's development server is not a production deployment server.
+The development server binds to `http://127.0.0.1:3000`. `/api`, `/auth` and `/health` proxy to the Go server at `127.0.0.1:8080`. Start the backend separately when using those routes. Webpack's development server is not a production deployment server.
 
 ```sh
 pnpm run format       # Explicitly format frontend files
@@ -45,3 +45,13 @@ Errors expose local safe messages, allowlisted codes/field errors, request IDs a
 bounded retry hints; raw server/provider messages are discarded. A 401 emits the
 session-expiry event for the authentication boundary. Generated types back the
 current-user and workspace-page helpers; routes cannot select another origin.
+
+The backoffice checks `/api/v1/me` before rendering private content and during
+session revalidation. Login uses `/auth/login`; sign-out calls the guarded logout
+route. Any API 401 hides private views and clears local queries without a retry
+loop. Failed sign-out remains visibly unconfirmed. The development proxy includes
+`/auth`, and local identity still requires the backend's explicit loopback mode.
+
+When using the local Webpack proxy with synthetic OIDC, configure the backend
+public origin as `http://127.0.0.1:3000` so Origin checks and callbacks match the
+browser origin. Production continues to use one HTTPS origin served through Go.
