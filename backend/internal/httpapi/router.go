@@ -24,33 +24,45 @@ type problem struct {
 	RequestID string `json:"request_id"`
 }
 
-// NewHandler creates the current liveness and error boundary. No unknown path
-// can fall through to frontend HTML, and error text is never reflected.
+// NewHandler preserves the API-only entry point.
 func NewHandler(auth ...*Auth) http.Handler {
+	if len(auth) > 0 {
+		return NewAppHandler(auth[0], nil)
+	}
+	return NewAppHandler(nil, nil)
+}
+
+// NewAppHandler optionally serves a separately built backoffice. API and auth
+// misses remain problems and can never fall through to SPA HTML.
+func NewAppHandler(auth *Auth, assets http.Handler) http.Handler {
 	api := http.HandlerFunc(route)
 	var protected http.Handler = api
-	if len(auth) > 0 && auth[0] != nil {
-		protected = auth[0].Protect(http.HandlerFunc(auth[0].apiRoutes), "viewer")
+	if auth != nil {
+		protected = auth.Protect(http.HandlerFunc(auth.apiRoutes), "viewer")
 	}
 	return SecurityHeaders(withRequestID(BoundRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/login" {
-			auth[0].login(w, r)
+		if auth != nil && r.URL.Path == "/auth/login" {
+			auth.login(w, r)
 			return
 		}
-		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/callback" {
-			auth[0].callback(w, r)
+		if auth != nil && r.URL.Path == "/auth/callback" {
+			auth.callback(w, r)
 			return
 		}
-		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/logout" {
-			auth[0].logout(w, r)
+		if auth != nil && r.URL.Path == "/auth/logout" {
+			auth.logout(w, r)
 			return
 		}
-		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/reauthenticate" {
-			auth[0].Protect(http.HandlerFunc(auth[0].reauthenticate), "viewer").ServeHTTP(w, r)
+		if auth != nil && r.URL.Path == "/auth/reauthenticate" {
+			auth.Protect(http.HandlerFunc(auth.reauthenticate), "viewer").ServeHTTP(w, r)
 			return
 		}
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		if r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
 			protected.ServeHTTP(w, r)
+			return
+		}
+		if assets != nil && r.URL.Path != "/health" && r.URL.Path != "/readyz" && r.URL.Path != "/auth" && !strings.HasPrefix(r.URL.Path, "/auth/") {
+			assets.ServeHTTP(w, r)
 			return
 		}
 		route(w, r)
