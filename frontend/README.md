@@ -30,3 +30,8 @@ Formatting never targets the repository's local `agents/` records. Dependencies 
 The backend owns the source contract at `../backend/api/openapi.yaml`. Generated types are checked in under `src/api/generated/`; edit the OpenAPI document, run `pnpm run api:generate`, and include both source and generated output in the same change. CI runs the non-mutating `api:check` drift comparison.
 
 Jest runs `tests/**/*.test.ts(x)` in jsdom with React Testing Library and user-event. Tests use Jest's ES-module mode to load React Router's ESM distribution. The test commands include Node's required `--experimental-vm-modules` flag, which emits an experimental-feature warning. No external Watchman service is required. Babel strips TypeScript while preserving ES modules; `pnpm run typecheck` separately checks application and test types. Webpack owns the production build. Component tests cover navigation and keyboard entry; jsdom tests do not substitute for browser layout or accessibility review.
+
+For production-like local smoke checks, build with `pnpm run build`, then set
+`SAMA_ASSET_DIR` to this directory's `dist` when starting Go on an isolated
+loopback port. Go serves the browser and API from one origin with strict CSP;
+Webpack remains a separate build step. No deployed environment is implied.
