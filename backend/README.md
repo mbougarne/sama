@@ -171,3 +171,12 @@ OIDC login initiation is the preauthentication exception: invitation initiation
 still requires the configured Origin and JSON, then binds proof into the one-use
 browser challenge; callback remains protected by state, nonce and PKCE.
 Even an already-logged-out logout request requires Origin and JSON.
+
+Inbound mutation bodies have a global 1 MiB cap before authentication or database
+work; individual endpoints retain stricter decoding limits and reject unknown
+fields. Parsed headers are capped at 32 KiB, and the HTTP server also bounds header
+reads and slow clients using its configured timeouts. Oversized bodies/headers
+return 413/431; cancelled body reads return a safe 408 when a response is possible.
+Only configured trusted proxy peers can supply an X-Forwarded-For client-IP hint;
+the chain is checked from right to left. Forwarded host/protocol values never alter
+Origin, callback or cookie policy, and forwarding headers are removed downstream.

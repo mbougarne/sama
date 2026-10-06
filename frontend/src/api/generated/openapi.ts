@@ -255,11 +255,15 @@ export interface components {
       type: 'about:blank';
       title: string;
       /** @enum {integer} */
-      status: 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
+      status:
+        408 | 413 | 431 | 409 | 422 | 403 | 401 | 400 | 404 | 405 | 429 | 503;
       /** @enum {string} */
       code:
         | 'reauthentication_unsupported'
         | 'recent_authentication_required'
+        | 'body_too_large'
+        | 'headers_too_large'
+        | 'request_cancelled'
         | 'policy_conflict'
         | 'membership_conflict'
         | 'not_found'

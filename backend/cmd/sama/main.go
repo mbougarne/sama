@@ -64,7 +64,8 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
-		Handler:           httpapi.NewHandler(auth),
+		Handler:           httpapi.WithClientIP(httpapi.NewHandler(auth), config.TrustedProxies),
+		MaxHeaderBytes:    httpapi.MaxHeaderBytes,
 		ReadHeaderTimeout: config.Timeouts.ReadHeader,
 		ReadTimeout:       config.Timeouts.Read,
 		WriteTimeout:      config.Timeouts.Write,
