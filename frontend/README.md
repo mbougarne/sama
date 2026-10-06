@@ -62,3 +62,11 @@ form drafts. Use `scopedKey` with user/workspace UUIDs, feature, and normalized
 resource filters; array filters are treated as sets. No query cache is persisted
 in browser storage. Membership checks stay outside the workspace data scope and
 must finish before it is rendered; keys and cached role hints are not authority.
+
+Workspace selection lives at `/workspaces/{uuid}/{section}`. The authorized,
+paginated workspace endpoint supplies names and roles; a single workspace skips
+the picker. URL changes and background access revalidation hide the old view;
+removed/unknown scopes show no workspace content. The six navigation sections
+are available as routes, with unimplemented product features labelled explicitly.
+Keyboard tests cover selection/navigation; real 390 px/zoom reflow still needs
+browser acceptance before release.

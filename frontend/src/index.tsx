@@ -11,7 +11,7 @@ if (!root) throw new Error('Missing application root');
 createRoot(root).render(
   <StrictMode>
     <Providers>
-      <SessionGate>{() => <App />}</SessionGate>
+      <SessionGate>{(user) => <App user={user} />}</SessionGate>
     </Providers>
   </StrictMode>,
 );
