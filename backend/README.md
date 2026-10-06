@@ -180,3 +180,6 @@ return 413/431; cancelled body reads return a safe 408 when a response is possib
 Only configured trusted proxy peers can supply an X-Forwarded-For client-IP hint;
 the chain is checked from right to left. Forwarded host/protocol values never alter
 Origin, callback or cookie policy, and forwarding headers are removed downstream.
+
+Logout accepts an empty body or an empty JSON object; unknown fields and trailing
+JSON values are rejected even when no session remains.

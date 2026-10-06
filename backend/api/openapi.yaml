@@ -141,6 +141,11 @@ paths:
     post:
       operationId: logout
       summary: Revoke the current session and expire its cookie
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
       parameters:
         - {name: Origin, in: header, required: true, schema: {type: string}}
         - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"sama/backend/internal/identity"
 	"strings"
 	"testing"
 	"time"
@@ -107,5 +108,22 @@ func TestNetworkHeaderAndSlowClientLimits(t *testing.T) {
 			}
 		}
 		conn.Close()
+	}
+}
+
+func TestLogoutRejectsUnknownAndTrailingFields(t *testing.T) {
+	auth := &Auth{OIDC: &identity.OIDC{Config: identity.OIDCConfig{PublicOrigin: "https://sama.example"}}}
+	for _, tc := range []struct {
+		body string
+		want int
+	}{{"", 204}, {"{}", 204}, {`{"unknown":"secret"}`, 400}, {"{} {}", 400}, {"null", 400}} {
+		r := httptest.NewRequest("POST", "/auth/logout", strings.NewReader(tc.body))
+		r.Header.Set("Origin", "https://sama.example")
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		NewHandler(auth).ServeHTTP(w, r)
+		if w.Code != tc.want || strings.Contains(w.Body.String(), "secret") {
+			t.Fatal(tc.body, w.Code)
+		}
 	}
 }

@@ -512,7 +512,11 @@ export interface operations {
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
     responses: {
       /** @description Session revoked or already absent; session cookie expired. */
       204: {
