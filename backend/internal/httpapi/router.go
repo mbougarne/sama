@@ -32,7 +32,7 @@ func NewHandler(auth ...*Auth) http.Handler {
 	if len(auth) > 0 && auth[0] != nil {
 		protected = auth[0].Protect(http.HandlerFunc(auth[0].apiRoutes), "viewer")
 	}
-	return withRequestID(BoundRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return SecurityHeaders(withRequestID(BoundRequests(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if len(auth) > 0 && auth[0] != nil && r.URL.Path == "/auth/login" {
 			auth[0].login(w, r)
 			return
@@ -54,7 +54,7 @@ func NewHandler(auth ...*Auth) http.Handler {
 			return
 		}
 		route(w, r)
-	})))
+	}))))
 }
 
 func route(response http.ResponseWriter, request *http.Request) {

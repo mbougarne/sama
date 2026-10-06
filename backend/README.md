@@ -183,3 +183,9 @@ Origin, callback or cookie policy, and forwarding headers are removed downstream
 
 Logout accepts an empty body or an empty JSON object; unknown fields and trailing
 JSON values are rejected even when no session remains.
+
+All HTTP responses carry a strict same-origin CSP: no inline/eval/third-party
+scripts or styles, objects, frames, framing ancestors, or base changes. Other
+headers deny framing, MIME sniffing, referrer disclosure, camera, microphone and
+geolocation. TLS/HSTS termination remains deployment-owned. Production Webpack
+builds verify external hashed scripts and extracted CSS against this policy.
