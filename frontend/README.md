@@ -2,7 +2,7 @@
 
 This is the administrative interface for people managing their cloud services. It is a React browser application built with TypeScript and Webpack. The Go backend owns the browser-facing API, authentication/authorization and provider credentials. Node is development/build tooling; no separate Node BFF server is introduced.
 
-The interface contains an overview route, a not-found route, shared layout, React Router and TanStack Query providers. It contains no fake resource totals, account authentication or cloud actions. Server-data retry policy will be qualified when the first real query is implemented; the scaffold conservatively disables retries.
+The interface checks the current session before showing the overview and shared layout, using React Router and TanStack Query. It contains no fake resource totals or cloud actions. Transport reads have at most one transient retry; query-library and mutation retries remain disabled.
 
 Use Node **24.20.0**, pinned in `.nvmrc` and `package.json`. Use pnpm **10.6.5**, declared in `package.json`; `.npmrc` is also pnpm configuration. From this directory:
 
@@ -13,7 +13,7 @@ pnpm install --frozen-lockfile --ignore-scripts
 pnpm run dev
 ```
 
-The development server binds to `http://127.0.0.1:3000`. `/api` and `/health` proxy to the Go server at `127.0.0.1:8080`. Start the backend separately when using those routes. Webpack's development server is not a production deployment server.
+The development server binds to `http://127.0.0.1:3000`. `/api`, `/auth` and `/health` proxy to the Go server at `127.0.0.1:8080`. Start the backend separately when using those routes. Webpack's development server is not a production deployment server.
 
 ```sh
 pnpm run format       # Explicitly format frontend files
@@ -35,3 +35,38 @@ For production-like local smoke checks, build with `pnpm run build`, then set
 `SAMA_ASSET_DIR` to this directory's `dist` when starting Go on an isolated
 loopback port. Go serves the browser and API from one origin with strict CSP;
 Webpack remains a separate build step. No deployed environment is implied.
+
+`src/api/client.ts` is the browser transport. It sends same-origin cookies and
+reads the CSRF cookie only when sending a mutation; it never persists tokens.
+Each request shares one bounded deadline across at most one transient read retry
+with jitter. Mutations and access/validation/conflict/rate-limit failures are not
+retried. Caller cancellation remains distinguishable from deadline expiry.
+Errors expose local safe messages, allowlisted codes/field errors, request IDs and
+bounded retry hints; raw server/provider messages are discarded. A 401 emits the
+session-expiry event for the authentication boundary. Generated types back the
+current-user and workspace-page helpers; routes cannot select another origin.
+
+The backoffice checks `/api/v1/me` before rendering private content and during
+session revalidation. Login uses `/auth/login`; sign-out calls the guarded logout
+route. Any API 401 hides private views and clears local queries without a retry
+loop. Failed sign-out remains visibly unconfirmed. The development proxy includes
+`/auth`, and local identity still requires the backend's explicit loopback mode.
+
+When using the local Webpack proxy with synthetic OIDC, configure the backend
+public origin as `http://127.0.0.1:3000` so Origin checks and callbacks match the
+browser origin. Production continues to use one HTTPS origin served through Go.
+
+Authenticated feature data lives in a fresh `QueryScope` per user and workspace.
+Scope replacement cancels/removes the old client's queries and remounts local
+form drafts. Use `scopedKey` with user/workspace UUIDs, feature, and normalized
+resource filters; array filters are treated as sets. No query cache is persisted
+in browser storage. Membership checks stay outside the workspace data scope and
+must finish before it is rendered; keys and cached role hints are not authority.
+
+Workspace selection lives at `/workspaces/{uuid}/{section}`. The authorized,
+paginated workspace endpoint supplies names and roles; a single workspace skips
+the picker. URL changes and background access revalidation hide the old view;
+removed/unknown scopes show no workspace content. The six navigation sections
+are available as routes, with unimplemented product features labelled explicitly.
+Keyboard tests cover selection/navigation; real 390 px/zoom reflow still needs
+browser acceptance before release.
