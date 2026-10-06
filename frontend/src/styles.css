@@ -145,3 +145,17 @@ input:focus-visible {
   outline: 3px solid var(--sky-700);
   outline-offset: 3px;
 }
+
+.workspace-picker {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+.workspace-picker select {
+  width: 100%;
+  min-width: 0;
+}
+.workspace-name,
+.eyebrow {
+  overflow-wrap: anywhere;
+}

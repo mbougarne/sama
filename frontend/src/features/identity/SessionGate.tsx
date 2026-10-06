@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ApiError, getMe, logout, type User } from '../../api/client';
+import { QueryScope } from '../../app/QueryScope';
 
 export function SessionGate({
   children,
@@ -87,7 +88,7 @@ export function SessionGate({
           <p role="alert">Sign out could not be confirmed. Try again.</p>
         )}
       </header>
-      {children(session.data)}
+      <QueryScope userId={session.data.id}>{children(session.data)}</QueryScope>
     </>
   );
 }
