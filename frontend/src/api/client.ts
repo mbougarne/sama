@@ -145,7 +145,11 @@ export async function apiRequest<T>(
     path.startsWith('//') ||
     url.origin !== window.location.origin ||
     url.hash ||
-    !(url.pathname.startsWith('/api/') || url.pathname === '/auth/logout')
+    !(
+      url.pathname.startsWith('/api/') ||
+      url.pathname === '/auth/logout' ||
+      (url.pathname === '/auth/login' && options.method === 'POST')
+    )
   )
     throw new Error('Invalid API path.');
   const method = options.method ?? 'GET';

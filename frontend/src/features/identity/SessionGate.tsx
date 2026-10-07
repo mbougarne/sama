@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { ApiError, getMe, logout, type User } from '../../api/client';
+import { InvitationEntry } from './InvitationEntry';
 import { QueryScope } from '../../app/QueryScope';
 
 export function SessionGate({
@@ -57,6 +58,7 @@ export function SessionGate({
         </h1>
         <p>Sign in to access your workspaces.</p>
         <a href="/auth/login">Sign in</a>
+        <InvitationEntry />
       </main>
     );
   if (session.isPending || session.isFetching)

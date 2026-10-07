@@ -449,6 +449,18 @@ export interface operations {
       };
     };
     responses: {
+      /** @description With Accept application/json, return the configured issuer authorization URL for browser navigation; invitation proof is never included. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** Format: uri */
+            authorization_url: string;
+          };
+        };
+      };
       /** @description Browser-bound OIDC redirect. This preauthentication initiation requires configured Origin and JSON; it creates no session or membership. */
       302: {
         headers: {

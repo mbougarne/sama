@@ -1,7 +1,10 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, NavLink, useNavigate, useParams } from 'react-router';
 import { ApiError, getWorkspaces, type User } from '../../api/client';
 import { QueryScope } from '../../app/QueryScope';
+
+import { lazy, Suspense } from 'react';
+const SettingsPage = lazy(() => import('../settings/SettingsPage'));
 
 const sections = [
   'overview',
@@ -16,6 +19,7 @@ const label = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 export function WorkspaceShell({ user }: { user: User }) {
   const { workspaceId, section = 'overview' } = useParams();
   const navigate = useNavigate();
+  const client = useQueryClient();
   const access = useInfiniteQuery({
     queryKey: ['user', user.id, 'workspaces'],
     queryFn: ({ pageParam, signal }) => getWorkspaces(pageParam, signal),
@@ -122,13 +126,27 @@ export function WorkspaceShell({ user }: { user: User }) {
               ? label(section)
               : 'Page not found'}
           </h1>
-          <p>
-            {section === 'overview'
-              ? 'Your workspace is ready. Resource observations will appear when a supported connection is available.'
-              : sections.includes(section as (typeof sections)[number])
-                ? 'This workspace section is not available yet.'
-                : 'Choose a section from the navigation.'}
-          </p>
+          {section === 'settings' ? (
+            <Suspense fallback={<p role="status">Loading settings…</p>}>
+              <SettingsPage
+                userId={user.id}
+                workspace={selected}
+                refreshAccess={() =>
+                  void client.invalidateQueries({
+                    queryKey: ['user', user.id, 'workspaces'],
+                  })
+                }
+              />
+            </Suspense>
+          ) : (
+            <p>
+              {section === 'overview'
+                ? 'Your workspace is ready. Resource observations will appear when a supported connection is available.'
+                : sections.includes(section as (typeof sections)[number])
+                  ? 'This workspace section is not available yet.'
+                  : 'Choose a section from the navigation.'}
+            </p>
+          )}
         </main>
       </div>
     </QueryScope>

@@ -159,3 +159,55 @@ input:focus-visible {
 .eyebrow {
   overflow-wrap: anywhere;
 }
+
+.form-field {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  min-width: 0;
+}
+.form-field label {
+  font-weight: 600;
+}
+.form-field p {
+  margin: 0;
+}
+.form-field input,
+.form-field select {
+  min-width: 0;
+  padding: 0.5rem;
+}
+.problem {
+  border: 2px solid var(--sky-900);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.problem:focus {
+  outline: 3px solid var(--sky-700);
+  outline-offset: 3px;
+}
+.settings-section {
+  max-width: 48rem;
+  margin: 2rem 0;
+  overflow-wrap: anywhere;
+}
+
+dialog {
+  color: var(--ink);
+  border: 2px solid var(--sky-700);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  width: min(32rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+dialog::backdrop {
+  background: rgb(18 48 71 / 55%);
+}
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}

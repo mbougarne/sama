@@ -199,3 +199,16 @@ problems. Files are confined through `os.Root`, with no directory listings,
 hidden files or arbitrary text-file serving. Missing assets return 404.
 The entry document uses `no-store`; hashed JS/CSS use one-year immutable caching;
 other allowed assets revalidate. Serve only trusted production build output here.
+
+Invitation login with `Accept: application/json` returns `{authorization_url}`
+instead of redirecting the fetch request. The URL comes from the configured OIDC
+issuer, contains no invitation proof, and retains the one-use browser challenge.
+Other login requests retain their redirect response.
+
+Migration 000014 stores workspace-scoped connections and credential versions.
+Provider/API-family/account identity is immutable. Active pointers use a deferred
+composite foreign key so connection and first version can commit atomically;
+disabled connections can retain their active pointer for later reconciliation.
+The connection read projection selects metadata only. This storage foundation
+adds no connection HTTP routes, encryption service, provider calls or dispatch;
+later services must enforce grants and reject revoked versions before use.
