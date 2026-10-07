@@ -98,6 +98,15 @@ paths:
               properties:
                 invitation: {type: string, minLength: 43, maxLength: 43}
       responses:
+        '200':
+          description: With Accept application/json, return the configured issuer authorization URL for browser navigation; invitation proof is never included.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authorization_url]
+                properties:
+                  authorization_url: {type: string, format: uri}
         '302':
           description: Browser-bound OIDC redirect. This preauthentication initiation requires configured Origin and JSON; it creates no session or membership.
         default:

@@ -70,3 +70,14 @@ removed/unknown scopes show no workspace content. The six navigation sections
 are available as routes, with unimplemented product features labelled explicitly.
 Keyboard tests cover selection/navigation; real 390 px/zoom reflow still needs
 browser acceptance before release.
+
+Shared `Field`, `ProblemSummary` and `RiskDialog` components provide labels,
+associated errors, local safe error text, modal focus handling and optional exact
+target confirmation. Settings loads members in bounded pages; owners/admins can
+manage roles within their ceiling and issue manually shared invitations. Invitation
+proof lives only in component memory and can be cleared after sharing. Login proof
+is cleared on submission and is sent only in JSON, never in a URL or query cache.
+Owner settings use server policy versions and bounded name/queue/retention fields.
+Ownership transfer reviews the exact member UUID and impact before confirmation.
+Conflicts require reviewing current data; permission denials offer access refresh.
+Changing workspace or signing out discards drafts and invitation proof.

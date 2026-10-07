@@ -63,7 +63,15 @@ func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, a.cookie("login", challenge.Browser, 300))
 	w.Header().Set("Cache-Control", "no-store")
-	http.Redirect(w, r, a.OIDC.OAuth.AuthCodeURL(challenge.State, oidc.Nonce(challenge.Nonce), oauth2.S256ChallengeOption(challenge.Verifier)), http.StatusFound)
+	destination := a.OIDC.OAuth.AuthCodeURL(challenge.State, oidc.Nonce(challenge.Nonce), oauth2.S256ChallengeOption(challenge.Verifier))
+	if r.Method == http.MethodPost && r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(struct {
+			URL string `json:"authorization_url"`
+		}{destination})
+		return
+	}
+	http.Redirect(w, r, destination, http.StatusFound)
 }
 
 func (a *Auth) cookie(kind, value string, maxAge int) *http.Cookie {
