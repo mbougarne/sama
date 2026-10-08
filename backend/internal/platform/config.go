@@ -57,6 +57,7 @@ type TimeoutConfig struct {
 }
 
 type BudgetConfig struct {
+	ProviderCallingProcesses      int
 	WorkerCount                   int
 	ProviderRequestsPerConnection int
 }
@@ -306,7 +307,11 @@ func loadBudgets(lookup EnvLookup) (BudgetConfig, error) {
 	if err != nil {
 		return BudgetConfig{}, err
 	}
-	return BudgetConfig{WorkerCount: workers, ProviderRequestsPerConnection: providerRequests}, nil
+	callers, err := integerSetting(lookup, "SAMA_PROVIDER_CALLING_PROCESSES", 1, 0, 1)
+	if err != nil {
+		return BudgetConfig{}, err
+	}
+	return BudgetConfig{WorkerCount: workers, ProviderRequestsPerConnection: providerRequests, ProviderCallingProcesses: callers}, nil
 }
 
 func integerSetting(lookup EnvLookup, name string, fallback, minimum, maximum int) (int, error) {

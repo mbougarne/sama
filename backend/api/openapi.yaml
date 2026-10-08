@@ -10,6 +10,203 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/connections:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: cursor, in: query, schema: {type: string, format: uuid}}
+    get:
+      operationId: listConnections
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Authorized connections in UUID order.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectionPage'}
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: saveConnection
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [family, label, credential]
+              properties:
+                family: {type: string, maxLength: 64}
+                label: {type: string, minLength: 1, maxLength: 100}
+                credential: {$ref: '#/components/schemas/WriteCredential'}
+      responses:
+        '201':
+          description: Validated encrypted connection and initial sync committed atomically.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [id, sync_id]
+                properties:
+                  id: {type: string, format: uuid}
+                  sync_id: {type: string, format: uuid}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getConnection
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Safe authorized connection metadata.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectionView'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/capabilities:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getConnectionCapabilities
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Effective reasons; this projection never authorizes dispatch.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Capabilities'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/syncs:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: refreshConnection
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '202':
+          description: Durable coalesced refresh accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [sync_id]
+                properties:
+                  sync_id: {type: string, format: uuid}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/credential-rotations:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: rotateConnectionCredential
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false, required: [credential], properties: {credential: {$ref: '#/components/schemas/WriteCredential'}}}
+      responses:
+        '200':
+          description: Validated credential version and audit committed atomically.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [version]
+                properties:
+                  version: {type: integer, minimum: 1}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/disable:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: disableConnection
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200':
+          description: New work disabled; provider credentials are not revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status, message]
+                properties:
+                  status: {type: string, const: disabled}
+                  message: {type: string}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connection-validations:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: previewConnectionCredential
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [family, credential]
+              properties:
+                family: {type: string, maxLength: 128}
+                credential:
+                  type: object
+                  additionalProperties: false
+                  required: [type, token]
+                  properties:
+                    type: {type: string, const: bearer_v1}
+                    token: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+      responses:
+        '200':
+          description: Safe read-only preview; never authority for a subsequent save or rotation.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectionPreview'}
+        default:
+          $ref: '#/components/responses/Problem'
   /readyz:
     get:
       operationId: getCredentialReadiness
@@ -464,6 +661,55 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    WriteCredential:
+      type: object
+      additionalProperties: false
+      required: [type, token]
+      properties:
+        type: {type: string, const: bearer_v1}
+        token: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+    Capabilities:
+      type: array
+      items: {$ref: '#/components/schemas/Capability'}
+    ConnectionView:
+      type: object
+      additionalProperties: false
+      required: [id, workspace_id, provider, api_family, account_identity, region_policy, label, status, active_credential_version, permissions_verified_at, capabilities]
+      properties:
+        id: {type: string, format: uuid}
+        workspace_id: {type: string, format: uuid}
+        provider: {type: string}
+        api_family: {type: string}
+        account_identity: {type: string}
+        region_policy: {type: array, items: {type: string}}
+        label: {type: string}
+        status: {type: string, enum: [active, disabled]}
+        active_credential_version: {type: [integer, 'null'], format: int64}
+        permissions_verified_at: {type: [string, 'null'], format: date-time}
+        capabilities: {$ref: '#/components/schemas/Capabilities'}
+    ConnectionPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, maxItems: 200, items: {$ref: '#/components/schemas/ConnectionView'}}
+        next_cursor: {type: [string, 'null'], format: uuid}
+    Capability:
+      type: object
+      additionalProperties: false
+      required: [action, available, reason]
+      properties:
+        action: {type: string}
+        available: {type: boolean}
+        reason: {type: string, enum: [available, unsupported, unverified, denied, state_restricted]}
+    ConnectionPreview:
+      type: object
+      additionalProperties: false
+      required: [account_identity, verified_at, capabilities]
+      properties:
+        account_identity: {type: string, maxLength: 512}
+        verified_at: {type: string, format: date-time}
+        capabilities: {type: array, items: {$ref: '#/components/schemas/Capability'}}
     GrantActions:
       type: array
       maxItems: 4
@@ -564,6 +810,8 @@ components:
             - headers_too_large
             - request_cancelled
             - policy_conflict
+            - credential_version_changed
+            - queue_quota_reached
             - membership_conflict
             - not_found
             - method_not_allowed
@@ -573,6 +821,8 @@ components:
             - unauthenticated
             - invalid_request
             - rate_limited
+            - provider_unavailable
+            - unsupported_capability
             - credentials_unavailable
             - identity_unavailable
         errors:

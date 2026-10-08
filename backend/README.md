@@ -229,3 +229,76 @@ AES-GCM envelopes to workspace, connection, provider/API family and version.
 Only the versioned bearer credential schema is defined; no provider is enabled.
 Compiled outbound profiles enforce HTTPS/path/authority, reject redirects and
 pin dialing to public DNS answers while preserving TLS hostname verification.
+
+Provider metadata requests have an 8 MiB cap and one 30-second retry budget.
+Only GET/HEAD retry, at most five attempts; 401/403 stop and mutation methods
+receive one attempt. Provider errors expose fixed categories only. A shared
+process budget holds at most two requests per connection through body close,
+with credential/project-wide 429 cooldown. Adapters normalize reset timestamps.
+`SAMA_PROVIDER_CALLING_PROCESSES` accepts only 0 (DB-only API process) or 1
+(default). Deployment must run at most one calling process; local configuration
+cannot discover a misconfigured second host. Provider-facing services must reject
+calls in DB-only mode and share the same budget instance.
+
+`POST /api/v1/workspaces/{workspace_id}/connection-validations` accepts only
+`{family,credential:{type:"bearer_v1",token}}`, requires admin/owner authority,
+Origin/CSRF, and returns safe account/read-capability preview metadata. Five
+adapter attempts per actor/minute are permitted; a preview writes no connection,
+credential or audit and cannot authorize a later save. No production adapters
+are registered yet, so configured deployments reject unsupported families.
+`POST /api/v1/workspaces/{id}/connections` accepts only family, label and a
+write-only typed credential. It freshly validates that request outside its
+transaction, then commits the encrypted version, server-derived account and
+read qualification, allowlisted audit event and initial sync intent together.
+Initial admission uses current management authority and creates no grants.
+No production validation adapter is registered until qualification is complete.
+
+`GET /api/v1/workspaces/{workspace_id}/connections` returns granted safe metadata
+with a UUID cursor, default limit 50 and maximum 200. Detail and `/capabilities`
+reads require the same current membership and explicit read grant. Reasons retain
+unsupported, unverified, denied and state-restricted distinctions. No resource
+mutation state is inferred from connection-level metadata.
+
+`POST /api/v1/workspaces/{workspace_id}/connections/{connection_id}/disable`
+accepts `{}` from an administrator/owner with Origin/CSRF. It atomically disables
+new work, cancels queued connection-refresh records and appends audit once.
+Credentials/history remain stored. This does not revoke credentials at the
+provider. Future sync acceptance and unsent dispatch must retain the shared
+`RequireNewWork` row lock through their database transaction; submitted-operation
+reconciliation is a separate future service and must remain visible.
+
+The durable jobs migration stores version-1 `connection_refresh` jobs with a bounded JSON
+connection reference, tenant foreign key, deadline and lease fields/indexes.
+Unknown payload versions, extra fields and raw provider bodies are rejected.
+A new payload version plus migration is required before adding sync/operation
+references; old versions must stay readable until queued work is drained or
+explicitly migrated. Provider execution is implemented in later worker slices. Version 2 adds a composite-FK sync reference without
+reinterpreting version 1. Refresh acceptance now coalesces pending/running global
+compute-server scopes across replicas and enforces the workspace queue limit.
+`POST .../connections/{id}/syncs` requires current explicit read and refresh
+grants and an active usable credential; it returns 202 with the sync reference.
+Claims use short SKIP LOCKED transactions, 60-second token-fenced leases and
+15-second renewal. Callbacks must honor cancellation after failed renewal.
+
+
+### Credential and master-key rotation
+
+`POST .../connections/{id}/credential-rotations` revalidates its own write-only credential
+and rejects a different provider account. The new immutable version and audit
+commit together; retained versions remain available for legitimate submitted
+reconciliation. There is no credential cache registered. Version-scoped queued
+work must use `connection.RequireVersion` before dispatch; rotation does not
+silently replace the credential bound to an old review.
+
+Mount a keyring containing both old and new master keys, then run:
+
+```sh
+go run ./cmd/sama-keys-rewrap -old-key OLD_ID -new-key NEW_ID -batch-size 100
+```
+
+Each batch commits independently (maximum 200 versions). Rerunning resumes from
+remaining old-key references, including revoked and inactive credential versions.
+Only the wrapped data key and wrapping nonce change; ciphertext, identity and
+provider credential version remain unchanged. The command reports all retained
+database references. Retain old keys until all installations and retained backups
+no longer need them; it never deletes mounted keys or proves backup retirement.
