@@ -30,6 +30,7 @@ const (
 
 // Config is the immutable process configuration loaded during startup.
 type Config struct {
+	KeyringFile    string
 	AssetsDir      string
 	HTTPAddr       string
 	PublicOrigin   url.URL
@@ -56,6 +57,7 @@ type TimeoutConfig struct {
 }
 
 type BudgetConfig struct {
+	ProviderCallingProcesses      int
 	WorkerCount                   int
 	ProviderRequestsPerConnection int
 }
@@ -137,7 +139,9 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 	}
 
 	assetsDir, _ := lookup("SAMA_ASSET_DIR")
+	keyringFile, _ := lookup("SAMA_KEYRING_FILE")
 	return Config{
+		KeyringFile:    keyringFile,
 		AssetsDir:      assetsDir,
 		HTTPAddr:       address,
 		PublicOrigin:   origin,
@@ -303,7 +307,11 @@ func loadBudgets(lookup EnvLookup) (BudgetConfig, error) {
 	if err != nil {
 		return BudgetConfig{}, err
 	}
-	return BudgetConfig{WorkerCount: workers, ProviderRequestsPerConnection: providerRequests}, nil
+	callers, err := integerSetting(lookup, "SAMA_PROVIDER_CALLING_PROCESSES", 1, 0, 1)
+	if err != nil {
+		return BudgetConfig{}, err
+	}
+	return BudgetConfig{WorkerCount: workers, ProviderRequestsPerConnection: providerRequests, ProviderCallingProcesses: callers}, nil
 }
 
 func integerSetting(lookup EnvLookup, name string, fallback, minimum, maximum int) (int, error) {
