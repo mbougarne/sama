@@ -6,16 +6,57 @@
 export interface paths {
   '/api/v1/workspaces/{workspace_id}/connections': {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+        cursor?: string;
+      };
       header?: never;
       path: {
         workspace_id: string;
       };
       cookie?: never;
     };
-    get?: never;
+    get: operations['listConnections'];
     put?: never;
     post: operations['saveConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/connections/{connection_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getConnection'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/connections/{connection_id}/capabilities': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getConnectionCapabilities'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -35,6 +76,44 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['refreshConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/connections/{connection_id}/credential-rotations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['rotateConnectionCredential'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/connections/{connection_id}/disable': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['disableConnection'];
     delete?: never;
     options?: never;
     head?: never;
@@ -305,6 +384,30 @@ export interface components {
       type: 'bearer_v1';
       token: string;
     };
+    Capabilities: components['schemas']['Capability'][];
+    ConnectionView: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      workspace_id: string;
+      provider: string;
+      api_family: string;
+      account_identity: string;
+      region_policy: string[];
+      label: string;
+      /** @enum {string} */
+      status: 'active' | 'disabled';
+      /** Format: int64 */
+      active_credential_version: number | null;
+      /** Format: date-time */
+      permissions_verified_at: string | null;
+      capabilities: components['schemas']['Capabilities'];
+    };
+    ConnectionPage: {
+      data: components['schemas']['ConnectionView'][];
+      /** Format: uuid */
+      next_cursor: string | null;
+    };
     Capability: {
       action: string;
       available: boolean;
@@ -378,8 +481,8 @@ export interface components {
         | 'headers_too_large'
         | 'request_cancelled'
         | 'policy_conflict'
-        | 'queue_quota_reached'
         | 'credential_version_changed'
+        | 'queue_quota_reached'
         | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
@@ -450,9 +553,38 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  listConnections: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized connections in UUID order. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConnectionPage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   saveConnection: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+        cursor?: string;
+      };
       header: {
         Origin: string;
         'X-CSRF-Token': string;
@@ -489,6 +621,54 @@ export interface operations {
       default: components['responses']['Problem'];
     };
   };
+  getConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Safe authorized connection metadata. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConnectionView'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  getConnectionCapabilities: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Effective reasons; this projection never authorizes dispatch. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Capabilities'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   refreshConnection: {
     parameters: {
       query?: never;
@@ -517,6 +697,76 @@ export interface operations {
           'application/json': {
             /** Format: uuid */
             sync_id: string;
+          };
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  rotateConnectionCredential: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          credential: components['schemas']['WriteCredential'];
+        };
+      };
+    };
+    responses: {
+      /** @description Validated credential version and audit committed atomically. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            version: number;
+          };
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  disableConnection: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description New work disabled; provider credentials are not revoked. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            status: 'disabled';
+            message: string;
           };
         };
       };
