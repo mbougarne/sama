@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"sama/backend/internal/connection"
 	"sama/backend/internal/httpapi"
 	"sama/backend/internal/identity"
 	"sama/backend/internal/platform"
@@ -75,6 +76,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	// Keyring failure closes credential readiness, not process liveness.
 	ring, _ := credentials.LoadKeyring(config.KeyringFile)
+	if auth != nil {
+		auth.ConnectionValidation = connection.NewValidationService(pool, ring, config.Budgets.ProviderCallingProcesses == 1, nil)
+	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
 		Handler:           httpapi.WithClientIP(httpapi.CredentialReadiness(httpapi.NewAppHandler(auth, assetHandler), pool, ring), config.TrustedProxies),

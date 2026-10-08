@@ -9,15 +9,18 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
+	"sama/backend/internal/connection"
 	"sama/backend/internal/identity"
 )
 
 // Auth is installation configuration injected by the composition root.
 type Auth struct {
-	Pool       *pgxpool.Pool
-	Sessions   *identity.Sessions
-	OIDC       *identity.OIDC
-	Challenges *identity.Challenges
+	ConnectionSupport    map[string][]string
+	ConnectionValidation *connection.ValidationService
+	Pool                 *pgxpool.Pool
+	Sessions             *identity.Sessions
+	OIDC                 *identity.OIDC
+	Challenges           *identity.Challenges
 }
 
 func (a *Auth) login(w http.ResponseWriter, r *http.Request) {
