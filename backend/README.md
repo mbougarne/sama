@@ -229,3 +229,17 @@ AES-GCM envelopes to workspace, connection, provider/API family and version.
 Only the versioned bearer credential schema is defined; no provider is enabled.
 Compiled outbound profiles enforce HTTPS/path/authority, reject redirects and
 pin dialing to public DNS answers while preserving TLS hostname verification.
+
+
+### Durable inventory refresh
+
+Version-1 jobs retain their connection-only payload; version 2 adds a composite-FK
+sync reference. Pending/running global compute-server scopes coalesce across API
+replicas. Admission requires current explicit read and refresh grants, an active
+credential, and available workspace queue quota. `POST .../connections/{id}/syncs`
+returns 202 with the shared sync reference. Claims use SKIP LOCKED, 60-second
+token-fenced leases, 15-second renewal and context cancellation on renewal loss.
+Callbacks must honor cancellation. Provider execution belongs to later slices.
+Inventory upserts preserve Sama UUIDs, use complete tenant/provider identity,
+and store version-1 allowlisted details capped at 64 KiB. Only a later complete
+generation publisher may infer deletions.

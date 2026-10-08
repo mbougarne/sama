@@ -10,6 +10,34 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/syncs:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: refreshConnection
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '202':
+          description: Durable coalesced refresh accepted.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [sync_id]
+                properties:
+                  sync_id: {type: string, format: uuid}
+        default:
+          $ref: '#/components/responses/Problem'
   /readyz:
     get:
       operationId: getCredentialReadiness
@@ -564,6 +592,7 @@ components:
             - headers_too_large
             - request_cancelled
             - policy_conflict
+            - queue_quota_reached
             - membership_conflict
             - not_found
             - method_not_allowed

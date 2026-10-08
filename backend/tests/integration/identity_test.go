@@ -24,6 +24,7 @@ func identityDatabase(t *testing.T) *pgxpool.Pool {
 	}
 	t.Cleanup(pool.Close)
 	if err := platform.ApplyMigrations(context.Background(), pool, migrations.Files, integrationMigrationQueryTimeout); err != nil {
+		diagnoseMigrationFailure(t, pool)
 		t.Fatal(err)
 	}
 	return pool

@@ -4,6 +4,25 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/connections/{connection_id}/syncs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['refreshConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/readyz': {
     parameters: {
       query?: never;
@@ -301,6 +320,7 @@ export interface components {
         | 'headers_too_large'
         | 'request_cancelled'
         | 'policy_conflict'
+        | 'queue_quota_reached'
         | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
@@ -369,6 +389,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  refreshConnection: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Durable coalesced refresh accepted. */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            sync_id: string;
+          };
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   getCredentialReadiness: {
     parameters: {
       query?: never;
