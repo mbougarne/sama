@@ -253,17 +253,52 @@ read qualification, allowlisted audit event and initial sync intent together.
 Initial admission uses current management authority and creates no grants.
 No production validation adapter is registered until qualification is complete.
 
+`GET /api/v1/workspaces/{workspace_id}/connections` returns granted safe metadata
+with a UUID cursor, default limit 50 and maximum 200. Detail and `/capabilities`
+reads require the same current membership and explicit read grant. Reasons retain
+unsupported, unverified, denied and state-restricted distinctions. No resource
+mutation state is inferred from connection-level metadata.
+
+`POST /api/v1/workspaces/{workspace_id}/connections/{connection_id}/disable`
+accepts `{}` from an administrator/owner with Origin/CSRF. It atomically disables
+new work, cancels queued connection-refresh records and appends audit once.
+Credentials/history remain stored. This does not revoke credentials at the
+provider. Future sync acceptance and unsent dispatch must retain the shared
+`RequireNewWork` row lock through their database transaction; submitted-operation
+reconciliation is a separate future service and must remain visible.
+
+The durable jobs migration stores version-1 `connection_refresh` jobs with a bounded JSON
+connection reference, tenant foreign key, deadline and lease fields/indexes.
+Unknown payload versions, extra fields and raw provider bodies are rejected.
+A new payload version plus migration is required before adding sync/operation
+references; old versions must stay readable until queued work is drained or
+explicitly migrated. Provider execution is implemented in later worker slices. Version 2 adds a composite-FK sync reference without
+reinterpreting version 1. Refresh acceptance now coalesces pending/running global
+compute-server scopes across replicas and enforces the workspace queue limit.
+`POST .../connections/{id}/syncs` requires current explicit read and refresh
+grants and an active usable credential; it returns 202 with the sync reference.
+Claims use short SKIP LOCKED transactions, 60-second token-fenced leases and
+15-second renewal. Callbacks must honor cancellation after failed renewal.
 
 
-### Durable inventory refresh
+### Credential and master-key rotation
 
-Version-1 jobs retain their connection-only payload; version 2 adds a composite-FK
-sync reference. Pending/running global compute-server scopes coalesce across API
-replicas. Admission requires current explicit read and refresh grants, an active
-credential, and available workspace queue quota. `POST .../connections/{id}/syncs`
-returns 202 with the shared sync reference. Claims use SKIP LOCKED, 60-second
-token-fenced leases, 15-second renewal and context cancellation on renewal loss.
-Callbacks must honor cancellation. Provider execution belongs to later slices.
-Inventory upserts preserve Sama UUIDs, use complete tenant/provider identity,
-and store version-1 allowlisted details capped at 64 KiB. Only a later complete
-generation publisher may infer deletions.
+`POST .../connections/{id}/credential-rotations` revalidates its own write-only credential
+and rejects a different provider account. The new immutable version and audit
+commit together; retained versions remain available for legitimate submitted
+reconciliation. There is no credential cache registered. Version-scoped queued
+work must use `connection.RequireVersion` before dispatch; rotation does not
+silently replace the credential bound to an old review.
+
+Mount a keyring containing both old and new master keys, then run:
+
+```sh
+go run ./cmd/sama-keys-rewrap -old-key OLD_ID -new-key NEW_ID -batch-size 100
+```
+
+Each batch commits independently (maximum 200 versions). Rerunning resumes from
+remaining old-key references, including revoked and inactive credential versions.
+Only the wrapped data key and wrapping nonce change; ciphertext, identity and
+provider credential version remain unchanged. The command reports all retained
+database references. Retain old keys until all installations and retained backups
+no longer need them; it never deletes mounted keys or proves backup retirement.

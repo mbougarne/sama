@@ -15,6 +15,7 @@ import (
 
 // Auth is installation configuration injected by the composition root.
 type Auth struct {
+	ConnectionSupport    map[string][]string
 	ConnectionValidation *connection.ValidationService
 	Pool                 *pgxpool.Pool
 	Sessions             *identity.Sessions
