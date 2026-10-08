@@ -15,6 +15,7 @@ import (
 	"sama/backend/internal/httpapi"
 	"sama/backend/internal/identity"
 	"sama/backend/internal/platform"
+	"sama/backend/internal/platform/credentials"
 )
 
 func main() {
@@ -72,9 +73,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		defer assets.Close()
 		assetHandler = assets
 	}
+	// Keyring failure closes credential readiness, not process liveness.
+	ring, _ := credentials.LoadKeyring(config.KeyringFile)
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
-		Handler:           httpapi.WithClientIP(httpapi.NewAppHandler(auth, assetHandler), config.TrustedProxies),
+		Handler:           httpapi.WithClientIP(httpapi.CredentialReadiness(httpapi.NewAppHandler(auth, assetHandler), pool, ring), config.TrustedProxies),
 		MaxHeaderBytes:    httpapi.MaxHeaderBytes,
 		ReadHeaderTimeout: config.Timeouts.ReadHeader,
 		ReadTimeout:       config.Timeouts.Read,

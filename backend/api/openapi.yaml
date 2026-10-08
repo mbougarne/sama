@@ -10,6 +10,59 @@ info:
 servers:
   - url: /
 paths:
+  /readyz:
+    get:
+      operationId: getCredentialReadiness
+      responses:
+        '200':
+          description: Database credential references have mounted keys; not provider qualification.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Health'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/connections/{connection_id}/grants:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: connection_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getOwnConnectionGrant
+      security: [{session: []}]
+      responses:
+        '200':
+          description: The current caller's explicit action classes; empty means denied.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [actions]
+                properties:
+                  actions: {$ref: '#/components/schemas/GrantActions'}
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: setConnectionGrant
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [user_id, actions]
+              properties:
+                user_id: {type: string, format: uuid}
+                actions: {$ref: '#/components/schemas/GrantActions'}
+      responses:
+        '204':
+          description: Explicit grant and audit committed. Owners must grant themselves; admins delegate within existing authority.
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v1/workspaces/{workspace_id}/settings:
     parameters:
       - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -411,6 +464,11 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    GrantActions:
+      type: array
+      maxItems: 4
+      uniqueItems: true
+      items: {type: string, enum: [read, refresh, operate, high_impact]}
     WorkspaceSettings:
       type: object
       additionalProperties: false
@@ -515,6 +573,7 @@ components:
             - unauthenticated
             - invalid_request
             - rate_limited
+            - credentials_unavailable
             - identity_unavailable
         errors:
           type: array

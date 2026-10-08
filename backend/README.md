@@ -212,3 +212,20 @@ disabled connections can retain their active pointer for later reconciliation.
 The connection read projection selects metadata only. This storage foundation
 adds no connection HTTP routes, encryption service, provider calls or dispatch;
 later services must enforce grants and reject revoked versions before use.
+
+Connection grants are deny-by-default, including for owners. `GET` and `PUT`
+`/api/v1/workspaces/{workspace_id}/connections/{connection_id}/grants` read the
+caller's grant or replace a member's `{user_id,actions}` grant. Classes are `read`,
+`refresh`, `operate`, `high_impact`; nonempty grants require `read`. Owners may
+explicitly grant themselves. Admins can manage only viewer/operator grants within
+their own connection authority. Current role/status and grants gate each call.
+
+`SAMA_KEYRING_FILE` selects a regular mode-0600 JSON file with `active` key ID and
+`keys: [{id,key}]`, where each key is base64-encoded 32-byte material. Provision
+keys outside Sama; no replacement keys are generated. `GET /readyz` checks the
+mounted keyring against all retained credential key references; `/health` stays
+live if keys are missing. Restart to load a changed file. Encryption binds both
+AES-GCM envelopes to workspace, connection, provider/API family and version.
+Only the versioned bearer credential schema is defined; no provider is enabled.
+Compiled outbound profiles enforce HTTPS/path/authority, reject redirects and
+pin dialing to public DNS answers while preserving TLS hostname verification.

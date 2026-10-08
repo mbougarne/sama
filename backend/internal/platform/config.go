@@ -30,6 +30,7 @@ const (
 
 // Config is the immutable process configuration loaded during startup.
 type Config struct {
+	KeyringFile    string
 	AssetsDir      string
 	HTTPAddr       string
 	PublicOrigin   url.URL
@@ -137,7 +138,9 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 	}
 
 	assetsDir, _ := lookup("SAMA_ASSET_DIR")
+	keyringFile, _ := lookup("SAMA_KEYRING_FILE")
 	return Config{
+		KeyringFile:    keyringFile,
 		AssetsDir:      assetsDir,
 		HTTPAddr:       address,
 		PublicOrigin:   origin,

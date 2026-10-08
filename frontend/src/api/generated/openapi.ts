@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+  '/readyz': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getCredentialReadiness'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/connections/{connection_id}/grants': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getOwnConnectionGrant'];
+    put: operations['setConnectionGrant'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/settings': {
     parameters: {
       query?: never;
@@ -210,6 +245,7 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    GrantActions: ('read' | 'refresh' | 'operate' | 'high_impact')[];
     WorkspaceSettings: {
       name: string;
       policy_version: number;
@@ -274,6 +310,7 @@ export interface components {
         | 'unauthenticated'
         | 'invalid_request'
         | 'rate_limited'
+        | 'credentials_unavailable'
         | 'identity_unavailable';
       /** @description Optional safe validation codes for allowlisted input fields; never provider messages. */
       errors?: {
@@ -332,6 +369,86 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getCredentialReadiness: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Database credential references have mounted keys; not provider qualification. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Health'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  getOwnConnectionGrant: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The current caller's explicit action classes; empty means denied. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            actions: components['schemas']['GrantActions'];
+          };
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  setConnectionGrant: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        connection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          user_id: string;
+          actions: components['schemas']['GrantActions'];
+        };
+      };
+    };
+    responses: {
+      /** @description Explicit grant and audit committed. Owners must grant themselves; admins delegate within existing authority. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   getWorkspaceSettings: {
     parameters: {
       query?: never;
