@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/connections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['saveConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/connections/{connection_id}/syncs': {
     parameters: {
       query?: never;
@@ -17,6 +35,24 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['refreshConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/connection-validations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['previewConnectionCredential'];
     delete?: never;
     options?: never;
     head?: never;
@@ -264,6 +300,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    WriteCredential: {
+      /** @constant */
+      type: 'bearer_v1';
+      token: string;
+    };
+    Capability: {
+      action: string;
+      available: boolean;
+      /** @enum {string} */
+      reason:
+        | 'available'
+        | 'unsupported'
+        | 'unverified'
+        | 'denied'
+        | 'state_restricted';
+    };
+    ConnectionPreview: {
+      account_identity: string;
+      /** Format: date-time */
+      verified_at: string;
+      capabilities: components['schemas']['Capability'][];
+    };
     GrantActions: ('read' | 'refresh' | 'operate' | 'high_impact')[];
     WorkspaceSettings: {
       name: string;
@@ -321,6 +379,7 @@ export interface components {
         | 'request_cancelled'
         | 'policy_conflict'
         | 'queue_quota_reached'
+        | 'credential_version_changed'
         | 'membership_conflict'
         | 'not_found'
         | 'method_not_allowed'
@@ -330,6 +389,8 @@ export interface components {
         | 'unauthenticated'
         | 'invalid_request'
         | 'rate_limited'
+        | 'provider_unavailable'
+        | 'unsupported_capability'
         | 'credentials_unavailable'
         | 'identity_unavailable';
       /** @description Optional safe validation codes for allowlisted input fields; never provider messages. */
@@ -389,6 +450,45 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  saveConnection: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          family: string;
+          label: string;
+          credential: components['schemas']['WriteCredential'];
+        };
+      };
+    };
+    responses: {
+      /** @description Validated encrypted connection and initial sync committed atomically. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            sync_id: string;
+          };
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   refreshConnection: {
     parameters: {
       query?: never;
@@ -418,6 +518,43 @@ export interface operations {
             /** Format: uuid */
             sync_id: string;
           };
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  previewConnectionCredential: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          family: string;
+          credential: {
+            /** @constant */
+            type: 'bearer_v1';
+            token: string;
+          };
+        };
+      };
+    };
+    responses: {
+      /** @description Safe read-only preview; never authority for a subsequent save or rotation. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConnectionPreview'];
         };
       };
       default: components['responses']['Problem'];

@@ -230,6 +230,30 @@ Only the versioned bearer credential schema is defined; no provider is enabled.
 Compiled outbound profiles enforce HTTPS/path/authority, reject redirects and
 pin dialing to public DNS answers while preserving TLS hostname verification.
 
+Provider metadata requests have an 8 MiB cap and one 30-second retry budget.
+Only GET/HEAD retry, at most five attempts; 401/403 stop and mutation methods
+receive one attempt. Provider errors expose fixed categories only. A shared
+process budget holds at most two requests per connection through body close,
+with credential/project-wide 429 cooldown. Adapters normalize reset timestamps.
+`SAMA_PROVIDER_CALLING_PROCESSES` accepts only 0 (DB-only API process) or 1
+(default). Deployment must run at most one calling process; local configuration
+cannot discover a misconfigured second host. Provider-facing services must reject
+calls in DB-only mode and share the same budget instance.
+
+`POST /api/v1/workspaces/{workspace_id}/connection-validations` accepts only
+`{family,credential:{type:"bearer_v1",token}}`, requires admin/owner authority,
+Origin/CSRF, and returns safe account/read-capability preview metadata. Five
+adapter attempts per actor/minute are permitted; a preview writes no connection,
+credential or audit and cannot authorize a later save. No production adapters
+are registered yet, so configured deployments reject unsupported families.
+`POST /api/v1/workspaces/{id}/connections` accepts only family, label and a
+write-only typed credential. It freshly validates that request outside its
+transaction, then commits the encrypted version, server-derived account and
+read qualification, allowlisted audit event and initial sync intent together.
+Initial admission uses current management authority and creates no grants.
+No production validation adapter is registered until qualification is complete.
+
+
 
 ### Durable inventory refresh
 

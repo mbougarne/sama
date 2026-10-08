@@ -10,6 +10,41 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/connections:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: saveConnection
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [family, label, credential]
+              properties:
+                family: {type: string, maxLength: 64}
+                label: {type: string, minLength: 1, maxLength: 100}
+                credential: {$ref: '#/components/schemas/WriteCredential'}
+      responses:
+        '201':
+          description: Validated encrypted connection and initial sync committed atomically.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [id, sync_id]
+                properties:
+                  id: {type: string, format: uuid}
+                  sync_id: {type: string, format: uuid}
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v1/workspaces/{workspace_id}/connections/{connection_id}/syncs:
     parameters:
       - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -36,6 +71,41 @@ paths:
                 required: [sync_id]
                 properties:
                   sync_id: {type: string, format: uuid}
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /api/v1/workspaces/{workspace_id}/connection-validations:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: previewConnectionCredential
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [family, credential]
+              properties:
+                family: {type: string, maxLength: 128}
+                credential:
+                  type: object
+                  additionalProperties: false
+                  required: [type, token]
+                  properties:
+                    type: {type: string, const: bearer_v1}
+                    token: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+      responses:
+        '200':
+          description: Safe read-only preview; never authority for a subsequent save or rotation.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ConnectionPreview'}
         default:
           $ref: '#/components/responses/Problem'
   /readyz:
@@ -492,6 +562,29 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    WriteCredential:
+      type: object
+      additionalProperties: false
+      required: [type, token]
+      properties:
+        type: {type: string, const: bearer_v1}
+        token: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+    Capability:
+      type: object
+      additionalProperties: false
+      required: [action, available, reason]
+      properties:
+        action: {type: string}
+        available: {type: boolean}
+        reason: {type: string, enum: [available, unsupported, unverified, denied, state_restricted]}
+    ConnectionPreview:
+      type: object
+      additionalProperties: false
+      required: [account_identity, verified_at, capabilities]
+      properties:
+        account_identity: {type: string, maxLength: 512}
+        verified_at: {type: string, format: date-time}
+        capabilities: {type: array, items: {$ref: '#/components/schemas/Capability'}}
     GrantActions:
       type: array
       maxItems: 4
@@ -593,6 +686,7 @@ components:
             - request_cancelled
             - policy_conflict
             - queue_quota_reached
+            - credential_version_changed
             - membership_conflict
             - not_found
             - method_not_allowed
@@ -602,6 +696,8 @@ components:
             - unauthenticated
             - invalid_request
             - rate_limited
+            - provider_unavailable
+            - unsupported_capability
             - credentials_unavailable
             - identity_unavailable
         errors:

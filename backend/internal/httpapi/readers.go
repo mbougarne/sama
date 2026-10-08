@@ -12,7 +12,7 @@ import (
 )
 
 func (a *Auth) apiRoutes(w http.ResponseWriter, r *http.Request) {
-	if a.connectionSyncs(w, r) || a.grantRoutes(w, r) || a.memberRoutes(w, r) {
+	if a.connectionWrites(w, r) || a.connectionSyncs(w, r) || a.validationRoutes(w, r) || a.grantRoutes(w, r) || a.memberRoutes(w, r) {
 		return
 	}
 	if r.URL.Path != "/api/v1/me" && r.URL.Path != "/api/v1/workspaces" {
