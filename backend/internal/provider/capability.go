@@ -32,13 +32,27 @@ func (b Binding) Family() string        { return b.family }
 func (b Binding) Version() int64        { return b.version }
 
 type Observation struct {
-	NativeID   string
-	Status     string
-	ObservedAt time.Time
+	NativeID     string
+	NativeStatus string
+	Status       string
+	Name         string
+	ObservedAt   time.Time
+	Details      ServerDetails
+}
+
+type ServerDetails struct {
+	Region      string `json:"region,omitempty"`
+	MachineType string `json:"machine_type,omitempty"`
+}
+
+type InventoryPage struct {
+	Data []Observation
+	Next string
 }
 
 type InventoryReader interface {
 	Read(context.Context, Binding, string) (Observation, error)
+	Page(context.Context, Binding, string) (InventoryPage, error)
 }
 
 type Submission struct {
@@ -90,4 +104,13 @@ func NormalizeStatus(native string, known map[string]string) string {
 	default:
 		return "unknown"
 	}
+}
+
+// ServerCatalog describes the shared action vocabulary, not enabled adapters.
+var ServerCatalog = []Support{
+	{Action: "compute.server.read", Class: "read"},
+	{Action: "compute.server.power_on", Class: "operate"},
+	{Action: "compute.server.shutdown", Class: "operate"},
+	{Action: "compute.server.power_off", Class: "operate"},
+	{Action: "compute.server.reboot", Class: "operate"},
 }

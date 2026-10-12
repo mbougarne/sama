@@ -3,9 +3,11 @@ package connection
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"sama/backend/internal/inventory"
 	"sama/backend/internal/provider"
 	"sama/backend/internal/workspace"
 )
@@ -13,6 +15,7 @@ import (
 type View struct {
 	Metadata
 	Capabilities []provider.Capability `json:"capabilities"`
+	Inventory    inventory.Freshness   `json:"inventory"`
 }
 
 type Page struct {
@@ -20,13 +23,7 @@ type Page struct {
 	NextCursor *uuid.UUID `json:"next_cursor"`
 }
 
-var catalog = []provider.Support{
-	{Action: "compute.server.read", Class: "read"},
-	{Action: "compute.server.power_on", Class: "operate"},
-	{Action: "compute.server.shutdown", Class: "operate"},
-	{Action: "compute.server.power_off", Class: "operate"},
-	{Action: "compute.server.reboot", Class: "operate"},
-}
+var catalog = provider.ServerCatalog
 
 // ReadAuthorized filters membership and grants in the same snapshot as metadata.
 // implemented is a trusted adapter registry projection; an empty registry denies
@@ -37,7 +34,9 @@ func ReadAuthorized(ctx context.Context, pool *pgxpool.Pool, actor, scope, curso
 	}
 	rows, err := pool.Query(ctx, `SELECT c.id,c.workspace_id,c.provider,c.api_family,c.account_identity,
         c.region_policy,c.label,c.status,c.active_credential_version,c.permissions_verified_at,
-        c.verified_capabilities,m.role,g.actions
+        c.verified_capabilities,m.role,g.actions,
+        (SELECT max(completed_at) FROM sync_runs WHERE workspace_id=c.workspace_id AND connection_id=c.id AND scope='global' AND status='succeeded'),
+        (SELECT failure_code FROM sync_runs WHERE workspace_id=c.workspace_id AND connection_id=c.id AND scope='global' ORDER BY generation_number DESC LIMIT 1)
         FROM connections c JOIN workspaces w ON w.id=c.workspace_id AND w.closed_at IS NULL
         JOIN memberships m ON m.workspace_id=w.id AND m.user_id=$2
         JOIN users u ON u.id=m.user_id AND u.disabled_at IS NULL
@@ -54,8 +53,10 @@ func ReadAuthorized(ctx context.Context, pool *pgxpool.Pool, actor, scope, curso
 		var view View
 		var verified, grants []string
 		var role string
+		var last *time.Time
+		var failure *string
 		m := &view.Metadata
-		if rows.Scan(&m.ID, &m.WorkspaceID, &m.Provider, &m.APIFamily, &m.AccountIdentity, &m.RegionPolicy, &m.Label, &m.Status, &m.ActiveCredentialVersion, &m.PermissionsVerifiedAt, &verified, &role, &grants) != nil {
+		if rows.Scan(&m.ID, &m.WorkspaceID, &m.Provider, &m.APIFamily, &m.AccountIdentity, &m.RegionPolicy, &m.Label, &m.Status, &m.ActiveCredentialVersion, &m.PermissionsVerifiedAt, &verified, &role, &grants, &last, &failure) != nil {
 			return Page{}, workspace.ErrStore
 		}
 		if m.PermissionsVerifiedAt == nil {
@@ -65,6 +66,7 @@ func ReadAuthorized(ctx context.Context, pool *pgxpool.Pool, actor, scope, curso
 		state := []string{"compute.server.read"}
 		// Resource-specific mutation restrictions are unknown in a connection view.
 		view.Capabilities = provider.Effective(catalog, implemented[m.Provider+"/"+m.APIFamily], verified, grants, state)
+		view.Inventory = inventory.NewFreshness(last, failure)
 		page.Data = append(page.Data, view)
 	}
 	if rows.Err() != nil {

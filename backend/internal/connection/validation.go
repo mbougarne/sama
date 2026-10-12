@@ -5,7 +5,6 @@ import (
 	"errors"
 	"regexp"
 	"sama/backend/internal/workspace"
-	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +102,7 @@ func (s *ValidationService) Preview(ctx context.Context, actor, scope uuid.UUID,
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	account, verified, err := reader.Validate(ctx, input)
-	if err != nil || !safeAccount.MatchString(account) || strings.Contains(account, input.Token) {
+	if err != nil || !safeAccount.MatchString(account) || input.ContainsSecret(account) {
 		return Preview{}, ErrValidation
 	}
 	// This slice exposes only read qualification, never inferred action authority.

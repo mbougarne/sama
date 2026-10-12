@@ -59,7 +59,7 @@ func Disable(ctx context.Context, pool *pgxpool.Pool, actor, scope, id uuid.UUID
 	}
 	// Only the unsent refresh records this storage slice can represent are cancelled.
 	// Future submitted mutations must retain reconciliation jobs and visibility.
-	if _, err := tx.Exec(ctx, `UPDATE jobs SET state='cancelled' WHERE workspace_id=$1 AND connection_id=$2 AND state='queued'`, scope, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE jobs SET state='cancelled',completed_at=clock_timestamp() WHERE workspace_id=$1 AND connection_id=$2 AND state='queued'`, scope, id); err != nil {
 		return workspace.ErrStore
 	}
 	eventID, err := audit.NewID()

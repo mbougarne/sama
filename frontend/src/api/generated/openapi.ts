@@ -4,6 +4,106 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/operations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['acceptOperation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/resources/{resource_id}/action-reviews': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        resource_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['prepareActionReview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/resources/{resource_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        resource_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getResource'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/resources': {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+        connection_id?: string;
+        type?: 'compute.server';
+        region?: string;
+        account?: string;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['listResources'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/syncs/{sync_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        sync_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getSyncStatus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/connections': {
     parameters: {
       query?: {
@@ -379,10 +479,144 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
-    WriteCredential: {
-      /** @constant */
+    AcceptedOperation: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      state:
+        | 'queued'
+        | 'dispatching'
+        | 'waiting_provider'
+        | 'reconciling'
+        | 'unknown'
+        | 'succeeded'
+        | 'failed'
+        | 'cancelled';
+    };
+    PowerIntent: {
+      /** @enum {string} */
+      action:
+        | 'compute.server.power_on'
+        | 'compute.server.shutdown'
+        | 'compute.server.power_off'
+        | 'compute.server.reboot';
+      parameters: Record<string, never>;
+    };
+    ActionReview: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      resource_id: string;
+      action: string;
+      target_name: string;
+      high_impact: boolean;
+      /** Format: date-time */
+      expires_at: string;
+    };
+    Resource: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      connection_id: string;
+      provider: string;
+      api_family: string;
+      account_identity: string;
+      /** @enum {string} */
+      type: 'compute.server';
+      scope: string;
+      native_id: string;
+      name: string;
+      region: string;
+      /** @enum {string} */
+      status: 'unknown' | 'running' | 'stopped' | 'pending' | 'failed';
+      native_status: string;
+      /** Format: date-time */
+      observed_at: string;
+      inventory: components['schemas']['InventoryFreshness'];
+    };
+    ResourceDetail: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      connection_id: string;
+      provider: string;
+      api_family: string;
+      account_identity: string;
+      /** @enum {string} */
+      type: 'compute.server';
+      scope: string;
+      native_id: string;
+      name: string;
+      region: string;
+      /** @enum {string} */
+      status: 'unknown' | 'running' | 'stopped' | 'pending' | 'failed';
+      native_status: string;
+      /** Format: date-time */
+      observed_at: string;
+      inventory: components['schemas']['InventoryFreshness'];
+      /** @enum {integer} */
+      details_version: 1;
+      details: {
+        region?: string;
+        machine_type?: string;
+      };
+      available_actions: components['schemas']['Capabilities'];
+    };
+    ResourcePage: {
+      data: components['schemas']['Resource'][];
+      next_cursor: string | null;
+    };
+    InventoryFreshness: {
+      /** Format: date-time */
+      last_success_at: string | null;
+      failure_code: components['schemas']['SyncFailure'];
+      /** @enum {string} */
+      state: 'fresh' | 'stale' | 'never_observed';
+    };
+    /** @enum {string|null} */
+    SyncFailure:
+      | 'permission_denied'
+      | 'provider_unavailable'
+      | 'provider_rate_limited'
+      | 'provider_response_invalid'
+      | 'sync_limit_reached'
+      | null;
+    SyncStatus: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      connection_id: string;
+      /** @enum {string} */
+      status: 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+      page_count: number;
+      /** Format: date-time */
+      started_at: string | null;
+      /** Format: date-time */
+      completed_at: string | null;
+      failure_code: components['schemas']['SyncFailure'];
+      inventory: components['schemas']['InventoryFreshness'];
+    };
+    WriteCredential:
+      | components['schemas']['BearerCredential']
+      | components['schemas']['ContaboCredential'];
+    BearerCredential: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
       type: 'bearer_v1';
       token: string;
+    };
+    ContaboCredential: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'contabo_v1';
+      client_id: string;
+      client_secret: string;
+      username: string;
+      password: string;
     };
     Capabilities: components['schemas']['Capability'][];
     ConnectionView: {
@@ -401,6 +635,7 @@ export interface components {
       active_credential_version: number | null;
       /** Format: date-time */
       permissions_verified_at: string | null;
+      inventory: components['schemas']['InventoryFreshness'];
       capabilities: components['schemas']['Capabilities'];
     };
     ConnectionPage: {
@@ -493,6 +728,9 @@ export interface components {
         | 'invalid_request'
         | 'rate_limited'
         | 'provider_unavailable'
+        | 'stale_review'
+        | 'idempotency_conflict'
+        | 'resource_busy'
         | 'unsupported_capability'
         | 'credentials_unavailable'
         | 'identity_unavailable';
@@ -553,6 +791,153 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  acceptOperation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+        'Idempotency-Key': string;
+      };
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          review_id: string;
+          /** @enum {boolean} */
+          confirmed: true;
+          typed_target?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Durable acceptance or recovery of the original operation; no provider completion claim. */
+      202: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AcceptedOperation'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  prepareActionReview: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        resource_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PowerIntent'];
+      };
+    };
+    responses: {
+      /** @description Expiring server-owned review bound to current authority and fresh preconditions. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ActionReview'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  getResource: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        resource_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Safe typed local detail and advisory capability reasons. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ResourceDetail'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  listResources: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+        connection_id?: string;
+        type?: 'compute.server';
+        region?: string;
+        account?: string;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Permission-filtered complete local observations in UUID order. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ResourcePage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  getSyncStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        sync_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized local sync progress; no provider request. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SyncStatus'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   listConnections: {
     parameters: {
       query?: {
@@ -789,11 +1174,7 @@ export interface operations {
       content: {
         'application/json': {
           family: string;
-          credential: {
-            /** @constant */
-            type: 'bearer_v1';
-            token: string;
-          };
+          credential: components['schemas']['WriteCredential'];
         };
       };
     };
