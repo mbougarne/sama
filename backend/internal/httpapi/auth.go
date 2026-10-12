@@ -11,10 +11,12 @@ import (
 	"golang.org/x/oauth2"
 	"sama/backend/internal/connection"
 	"sama/backend/internal/identity"
+	"sama/backend/internal/operation"
 )
 
 // Auth is installation configuration injected by the composition root.
 type Auth struct {
+	Operations           *operation.Service
 	ConnectionSupport    map[string][]string
 	ConnectionValidation *connection.ValidationService
 	Pool                 *pgxpool.Pool

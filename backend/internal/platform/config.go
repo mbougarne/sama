@@ -30,6 +30,7 @@ const (
 
 // Config is the immutable process configuration loaded during startup.
 type Config struct {
+	WorkersEnabled bool
 	KeyringFile    string
 	AssetsDir      string
 	HTTPAddr       string
@@ -138,9 +139,15 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 		return Config{}, err
 	}
 
+	enabled, err := integerSetting(lookup, "SAMA_WORKERS_ENABLED", 0, 0, 1)
+	if err != nil || enabled == 1 && (databaseURL == "" || budgets.ProviderCallingProcesses != 1 || timeouts.Shutdown > time.Minute) {
+		return Config{}, configError("invalid_budget")
+	}
+
 	assetsDir, _ := lookup("SAMA_ASSET_DIR")
 	keyringFile, _ := lookup("SAMA_KEYRING_FILE")
 	return Config{
+		WorkersEnabled: enabled == 1,
 		KeyringFile:    keyringFile,
 		AssetsDir:      assetsDir,
 		HTTPAddr:       address,

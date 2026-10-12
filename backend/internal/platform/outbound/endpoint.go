@@ -21,6 +21,14 @@ type Profile struct {
 
 var HetznerCloud = Profile{host: "api.hetzner.cloud", prefix: "/v1"}
 
+var DigitalOcean = Profile{host: "api.digitalocean.com", prefix: "/v2"}
+
+var Vultr = Profile{host: "api.vultr.com", prefix: "/v2"}
+
+var Contabo = Profile{host: "api.contabo.com", prefix: "/v1"}
+
+var ContaboAuth = Profile{host: "auth.contabo.com", prefix: "/auth/realms/contabo/protocol/openid-connect/token"}
+
 func (p Profile) validate(u *url.URL) error {
 	if u == nil || p.host == "" || p.prefix == "" || u.Scheme != "https" || u.Opaque != "" || u.User != nil || u.Fragment != "" || u.Hostname() != p.host || u.Port() != "" && u.Port() != "443" {
 		return ErrEndpoint

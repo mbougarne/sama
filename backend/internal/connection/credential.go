@@ -13,15 +13,41 @@ var ErrCredential = errors.New("invalid typed credential")
 // Credential is a versioned write-only schema. Add separate typed variants when
 // an adapter requires them; never accept arbitrary maps or ambient identities.
 type Credential struct {
-	Type  string `json:"type"`
-	Token string `json:"token"`
+	Type         string `json:"type"`
+	Token        string `json:"token,omitempty"`
+	ClientID     string `json:"client_id,omitempty"`
+	ClientSecret string `json:"client_secret,omitempty"`
+	Username     string `json:"username,omitempty"`
+	Password     string `json:"password,omitempty"`
+}
+
+func validSecret(value string) bool {
+	return len(value) > 0 && len(value) <= 4096 && !strings.ContainsAny(value, "\r\n\x00")
 }
 
 func (c Credential) Validate() error {
-	if c.Type != "bearer_v1" || len(c.Token) == 0 || len(c.Token) > 4096 || strings.ContainsAny(c.Token, "\r\n\x00") {
+	switch c.Type {
+	case "bearer_v1":
+		if !validSecret(c.Token) || c.ClientID != "" || c.ClientSecret != "" || c.Username != "" || c.Password != "" {
+			return ErrCredential
+		}
+	case "contabo_v1":
+		if c.Token != "" || !validSecret(c.ClientID) || !validSecret(c.ClientSecret) || !validSecret(c.Username) || !validSecret(c.Password) {
+			return ErrCredential
+		}
+	default:
 		return ErrCredential
 	}
 	return nil
+}
+
+func (c Credential) ContainsSecret(text string) bool {
+	for _, value := range []string{c.Token, c.ClientID, c.ClientSecret, c.Username, c.Password} {
+		if value != "" && strings.Contains(text, value) {
+			return true
+		}
+	}
+	return false
 }
 
 func EncryptCredential(ring *credentials.Keyring, binding credentials.Binding, input Credential) (credentials.Envelope, error) {

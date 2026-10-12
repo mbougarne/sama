@@ -15,6 +15,9 @@ import (
 	"sama/backend/internal/connection"
 	"sama/backend/internal/httpapi"
 	"sama/backend/internal/identity"
+	"sama/backend/internal/inventory"
+	"sama/backend/internal/job"
+	"sama/backend/internal/operation"
 	"sama/backend/internal/platform"
 	"sama/backend/internal/platform/credentials"
 )
@@ -77,7 +80,28 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	// Keyring failure closes credential readiness, not process liveness.
 	ring, _ := credentials.LoadKeyring(config.KeyringFile)
 	if auth != nil {
+		auth.Operations = operation.NewService(pool, auth.Sessions, config.Budgets.ProviderCallingProcesses == 1, nil)
 		auth.ConnectionValidation = connection.NewValidationService(pool, ring, config.Budgets.ProviderCallingProcesses == 1, nil)
+	}
+	workerErrors := make(chan error, 1)
+	workerCtx, stopWorkers := context.WithCancel(ctx)
+	defer stopWorkers()
+	if config.WorkersEnabled {
+		scanner := inventory.Scanner{Pool: pool}
+		scheduler := job.Scheduler{Pool: pool, Now: time.Now}
+		runner, err := job.NewRunner(scheduler, config.Budgets.WorkerCount, config.Timeouts.Shutdown, map[job.Key]job.Handler{
+			{Type: "connection_refresh", Version: 2}: {Work: scanner.Scan, Finish: scanner.Complete},
+		}, func(ctx context.Context, lease job.Lease) error {
+			err := scanner.Complete(ctx, lease, job.ErrJob)
+			if errors.Is(err, job.ErrLease) {
+				return scheduler.Finish(ctx, lease, "failed")
+			}
+			return err
+		})
+		if err != nil {
+			return err
+		}
+		go func() { workerErrors <- runner.Run(workerCtx) }()
 	}
 	server := &http.Server{
 		Addr:              config.HTTPAddr,
@@ -96,17 +120,39 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}()
 
 	select {
+	case err := <-workerErrors:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.Timeouts.Shutdown)
+		defer cancel()
+		server.Shutdown(shutdownCtx)
+		if err == nil && ctx.Err() != nil {
+			return nil
+		}
+		if err == nil {
+			return errors.New("scheduler stopped unexpectedly")
+		}
+		return err
 	case err := <-errorsCh:
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
 		return err
 	case <-ctx.Done():
+		stopWorkers()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), config.Timeouts.Shutdown)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			_ = server.Close()
 			return err
+		}
+		if config.WorkersEnabled {
+			select {
+			case err := <-workerErrors:
+				if err != nil {
+					return err
+				}
+			case <-shutdownCtx.Done():
+				return job.ErrDrain
+			}
 		}
 		return nil
 	}

@@ -10,6 +10,111 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/operations:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: acceptOperation
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+        - {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [review_id, confirmed]
+              properties:
+                review_id: {type: string, format: uuid}
+                confirmed: {type: boolean, enum: [true]}
+                typed_target: {type: string, maxLength: 200}
+      responses:
+        '202':
+          description: Durable acceptance or recovery of the original operation; no provider completion claim.
+          headers:
+            Location: {schema: {type: string}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedOperation'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/resources/{resource_id}/action-reviews:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: resource_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: prepareActionReview
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PowerIntent'}
+      responses:
+        '200':
+          description: Expiring server-owned review bound to current authority and fresh preconditions.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ActionReview'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/resources/{resource_id}:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: resource_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getResource
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Safe typed local detail and advisory capability reasons.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ResourceDetail'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/resources:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: cursor, in: query, schema: {type: string, maxLength: 1024}}
+      - {name: connection_id, in: query, schema: {type: string, format: uuid}}
+      - {name: type, in: query, schema: {type: string, enum: [compute.server]}}
+      - {name: region, in: query, schema: {type: string, maxLength: 128}}
+      - {name: account, in: query, schema: {type: string, maxLength: 512}}
+    get:
+      operationId: listResources
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Permission-filtered complete local observations in UUID order.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ResourcePage'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/syncs/{sync_id}:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: sync_id, in: path, required: true, schema: {type: string, format: uuid}}
+    get:
+      operationId: getSyncStatus
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Authorized local sync progress; no provider request.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SyncStatus'}
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v1/workspaces/{workspace_id}/connections:
     parameters:
       - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -192,13 +297,7 @@ paths:
               required: [family, credential]
               properties:
                 family: {type: string, maxLength: 128}
-                credential:
-                  type: object
-                  additionalProperties: false
-                  required: [type, token]
-                  properties:
-                    type: {type: string, const: bearer_v1}
-                    token: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+                credential: {$ref: '#/components/schemas/WriteCredential'}
       responses:
         '200':
           description: Safe read-only preview; never authority for a subsequent save or rotation.
@@ -661,20 +760,141 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    AcceptedOperation:
+      type: object
+      additionalProperties: false
+      required: [id, state]
+      properties:
+        id: {type: string, format: uuid}
+        state: {type: string, enum: [queued, dispatching, waiting_provider, reconciling, unknown, succeeded, failed, cancelled]}
+    PowerIntent:
+      type: object
+      additionalProperties: false
+      required: [action, parameters]
+      properties:
+        action: {type: string, enum: [compute.server.power_on, compute.server.shutdown, compute.server.power_off, compute.server.reboot]}
+        parameters: {type: object, additionalProperties: false}
+    ActionReview:
+      type: object
+      additionalProperties: false
+      required: [id, resource_id, action, target_name, high_impact, expires_at]
+      properties:
+        id: {type: string, format: uuid}
+        resource_id: {type: string, format: uuid}
+        action: {type: string}
+        target_name: {type: string, minLength: 1, maxLength: 200}
+        high_impact: {type: boolean}
+        expires_at: {type: string, format: date-time}
+    Resource:
+      type: object
+      additionalProperties: false
+      required: [id, connection_id, provider, api_family, account_identity, type, scope, native_id, name, region, status, native_status, observed_at, inventory]
+      properties:
+        id: {type: string, format: uuid}
+        connection_id: {type: string, format: uuid}
+        provider: {type: string}
+        api_family: {type: string}
+        account_identity: {type: string}
+        type: {type: string, enum: [compute.server]}
+        scope: {type: string}
+        native_id: {type: string}
+        name: {type: string}
+        region: {type: string}
+        status: {type: string, enum: [unknown, running, stopped, pending, failed]}
+        native_status: {type: string}
+        observed_at: {type: string, format: date-time}
+        inventory: {$ref: '#/components/schemas/InventoryFreshness'}
+    ResourceDetail:
+      type: object
+      additionalProperties: false
+      required: [id, connection_id, provider, api_family, account_identity, type, scope, native_id, name, region, status, native_status, observed_at, inventory, details_version, details, available_actions]
+      properties:
+        id: {type: string, format: uuid}
+        connection_id: {type: string, format: uuid}
+        provider: {type: string}
+        api_family: {type: string}
+        account_identity: {type: string}
+        type: {type: string, enum: [compute.server]}
+        scope: {type: string}
+        native_id: {type: string}
+        name: {type: string}
+        region: {type: string}
+        status: {type: string, enum: [unknown, running, stopped, pending, failed]}
+        native_status: {type: string}
+        observed_at: {type: string, format: date-time}
+        inventory: {$ref: '#/components/schemas/InventoryFreshness'}
+        details_version: {type: integer, enum: [1]}
+        details:
+          type: object
+          additionalProperties: false
+          properties:
+            region: {type: string}
+            machine_type: {type: string}
+        available_actions: {$ref: '#/components/schemas/Capabilities'}
+    ResourcePage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, maxItems: 200, items: {$ref: '#/components/schemas/Resource'}}
+        next_cursor: {type: [string, 'null']}
+    InventoryFreshness:
+      type: object
+      additionalProperties: false
+      required: [last_success_at, failure_code, state]
+      properties:
+        last_success_at: {type: [string, 'null'], format: date-time}
+        failure_code: {$ref: '#/components/schemas/SyncFailure'}
+        state: {type: string, enum: [fresh, stale, never_observed]}
+    SyncFailure:
+      type: [string, 'null']
+      enum: [permission_denied, provider_unavailable, provider_rate_limited, provider_response_invalid, sync_limit_reached, null]
+    SyncStatus:
+      type: object
+      additionalProperties: false
+      required: [id, connection_id, status, page_count, started_at, completed_at, failure_code, inventory]
+      properties:
+        id: {type: string, format: uuid}
+        connection_id: {type: string, format: uuid}
+        status: {type: string, enum: [pending, running, succeeded, failed, cancelled]}
+        page_count: {type: integer, minimum: 0}
+        started_at: {type: [string, 'null'], format: date-time}
+        completed_at: {type: [string, 'null'], format: date-time}
+        failure_code: {$ref: '#/components/schemas/SyncFailure'}
+        inventory: {$ref: '#/components/schemas/InventoryFreshness'}
     WriteCredential:
+      oneOf:
+        - {$ref: '#/components/schemas/BearerCredential'}
+        - {$ref: '#/components/schemas/ContaboCredential'}
+      discriminator:
+        propertyName: type
+        mapping:
+          bearer_v1: '#/components/schemas/BearerCredential'
+          contabo_v1: '#/components/schemas/ContaboCredential'
+    BearerCredential:
       type: object
       additionalProperties: false
       required: [type, token]
       properties:
         type: {type: string, const: bearer_v1}
         token: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+    ContaboCredential:
+      type: object
+      additionalProperties: false
+      required: [type, client_id, client_secret, username, password]
+      properties:
+        type: {type: string, const: contabo_v1}
+        client_id: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+        client_secret: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+        username: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+        password: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
     Capabilities:
       type: array
       items: {$ref: '#/components/schemas/Capability'}
     ConnectionView:
       type: object
       additionalProperties: false
-      required: [id, workspace_id, provider, api_family, account_identity, region_policy, label, status, active_credential_version, permissions_verified_at, capabilities]
+      required: [id, workspace_id, provider, api_family, account_identity, region_policy, label, status, active_credential_version, permissions_verified_at, capabilities, inventory]
       properties:
         id: {type: string, format: uuid}
         workspace_id: {type: string, format: uuid}
@@ -686,6 +906,7 @@ components:
         status: {type: string, enum: [active, disabled]}
         active_credential_version: {type: [integer, 'null'], format: int64}
         permissions_verified_at: {type: [string, 'null'], format: date-time}
+        inventory: {$ref: '#/components/schemas/InventoryFreshness'}
         capabilities: {$ref: '#/components/schemas/Capabilities'}
     ConnectionPage:
       type: object
@@ -822,6 +1043,9 @@ components:
             - invalid_request
             - rate_limited
             - provider_unavailable
+            - stale_review
+            - idempotency_conflict
+            - resource_busy
             - unsupported_capability
             - credentials_unavailable
             - identity_unavailable

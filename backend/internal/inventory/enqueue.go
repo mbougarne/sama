@@ -59,10 +59,10 @@ func Enqueue(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID)
 	if !refresh || !workspace.WithinCeiling(role, "refresh") || status != "active" || !active {
 		return uuid.Nil, workspace.ErrDenied
 	}
-	return enqueueLocked(ctx, tx, scope, connection)
+	return enqueueLocked(ctx, tx, actor, scope, connection)
 }
 
-func enqueueLocked(ctx context.Context, tx pgx.Tx, scope, connection uuid.UUID) (uuid.UUID, error) {
+func enqueueLocked(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := tx.QueryRow(ctx, `SELECT id FROM sync_runs WHERE workspace_id=$1 AND connection_id=$2
  AND resource_type='compute.server' AND scope='global' AND status IN ('pending','running')`, scope, connection).Scan(&id)
@@ -90,8 +90,8 @@ func enqueueLocked(ctx context.Context, tx pgx.Tx, scope, connection uuid.UUID) 
 	if err != nil {
 		return uuid.Nil, workspace.ErrStore
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO sync_runs(id,workspace_id,connection_id,resource_type,scope,generation)
- VALUES($1,$2,$3,'compute.server','global',$1)`, id, scope, connection)
+	_, err = tx.Exec(ctx, `INSERT INTO sync_runs(id,workspace_id,connection_id,resource_type,scope,generation,actor_id)
+ VALUES($1,$2,$3,'compute.server','global',$1,$4)`, id, scope, connection, actor)
 	if err != nil {
 		return uuid.Nil, workspace.ErrStore
 	}
@@ -132,5 +132,5 @@ func Initial(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID)
 	if !active {
 		return uuid.Nil, workspace.ErrDenied
 	}
-	return enqueueLocked(ctx, tx, scope, connection)
+	return enqueueLocked(ctx, tx, actor, scope, connection)
 }

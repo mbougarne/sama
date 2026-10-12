@@ -21,3 +21,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"runtime
 REVOKE ALL ON TABLE public.sama_schema_migrations FROM PUBLIC, :"runtime_role";
 REVOKE ALL ON TABLE public.audit_events FROM PUBLIC, :"runtime_role";
 GRANT SELECT, INSERT ON TABLE public.audit_events TO :"runtime_role";
+
+-- Operation history is append-only for the runtime, including after upgrades.
+REVOKE UPDATE, DELETE ON TABLE public.operation_events FROM :"runtime_role";

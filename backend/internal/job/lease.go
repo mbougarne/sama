@@ -81,7 +81,7 @@ func (s Scheduler) Finish(ctx context.Context, lease Lease, state string) error 
 	if state != "succeeded" && state != "failed" {
 		return ErrLease
 	}
-	result, err := s.Pool.Exec(ctx, `UPDATE jobs SET state=$4,lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL
+	result, err := s.Pool.Exec(ctx, `UPDATE jobs SET state=$4,completed_at=clock_timestamp(),lease_owner=NULL,lease_token=NULL,lease_expires_at=NULL
         WHERE id=$1 AND lease_owner=$2 AND lease_token=$3 AND state='running' AND lease_expires_at>$5 AND deadline>$5`, lease.ID, lease.Owner, lease.Token, state, s.Now())
 	if err != nil || result.RowsAffected() != 1 {
 		return ErrLease

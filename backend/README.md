@@ -302,3 +302,106 @@ Only the wrapped data key and wrapping nonce change; ciphertext, identity and
 provider credential version remain unchanged. The command reports all retained
 database references. Retain old keys until all installations and retained backups
 no longer need them; it never deletes mounted keys or proves backup retirement.
+
+Claimed version-2 refresh jobs can be passed to `inventory.Scanner` with an
+explicit read-only adapter factory. Scans recheck the stored actor, grants,
+connection/version and lease on every page and stage allowlisted observations.
+Bounds are 100 pages, 200 rows/page, 10,000 rows, 8 MiB/page, 32 MiB total and
+five minutes (or the earlier job/caller deadline). Partial scans do not alter
+public inventory. Legacy actorless syncs fail closed. This does not start a
+scheduler or register a production provider; those remain separate gates.
+`Scanner.Execute` publishes only a completed scan in the same transaction as its
+terminal sync/job state. Failed scans retain the last complete inventory; missing
+resources are tombstoned only within the fully scanned scope. Older generations
+cannot replace newer completed scans, including newer empty scans.
+
+`GET /api/v1/workspaces/{workspace_id}/syncs/{sync_id}` reads authorized progress
+without provider traffic. Sync and connection views include last-success time,
+allowlisted failure category and `fresh`, `stale` or `never_observed` state. Failed
+refreshes preserve successful timestamps; the freshness target is five minutes.
+
+`GET .../resources` reads granted complete local inventory with `connection_id`,
+`account`, `type` and `region` filters. Pages default to 50 rows (maximum 200).
+Pass the opaque `next_cursor` unchanged; scope/actor/filter changes invalidate it.
+Unknown, duplicate, empty and malformed query values return a safe 400.
+`GET .../resources/{resource_id}` returns allowlisted version-1 server details,
+native/normalized status, observation/freshness and advisory action reasons.
+Missing, tombstoned and out-of-scope IDs return 404. Later dispatch must recheck
+current authority; an action projection is never an acceptance token.
+
+### Hetzner Cloud qualification boundary
+
+Reviewed 2026-10-12: Cloud API v1 uses a project token with bearer authentication;
+select Read permission for inventory. See the official [token guide](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/)
+and [Cloud client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/client.go).
+The official [server client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/server.go)
+uses GET `/servers` and `/servers/{id}` with page/per-page options. Its
+[server response schema](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/schema/server.go)
+does not expose a stable account/project identity. That identity requirement is
+unresolved: the documented token scope alone cannot prove account continuity
+when rotating credentials. Do not substitute a token hash, provider-wide constant
+or browser claim for verified provider identity. No Hetzner adapter is registered.
+Provider rate limits, identity continuity and live inventory acceptance remain
+unverified; existing transport deadlines, response caps and cooldowns stay required.
+
+Set `SAMA_WORKERS_ENABLED=1` explicitly to start the registered sync scheduler;
+PostgreSQL and provider-calling mode 1 are required. Default is off. Four workers
+are the starting configuration (bounded by `SAMA_WORKER_COUNT`). A dedicated
+PostgreSQL advisory-lock session excludes a second active scheduler. Loss of that
+session stops work. SIGTERM stops claims, cancels reads and drains within the
+configured shutdown deadline; interrupted leases remain recoverable. Only
+registered job type/version handlers run. Until provider qualification is
+resolved, the production sync reader registry remains empty and fails safely.
+
+Operation storage includes actor/target/version-bound expiring reviews, immutable
+accepted intent, scoped idempotency keys and explicitly sequenced events. Version-3
+job payloads carry only connection/operation references; old versions stay valid.
+The registered sync scheduler does not claim operation-dispatch jobs. No mutation
+adapter or provider dispatch is enabled by these storage/acceptance primitives.
+Operation transitions compare expected state and a live version-3 job lease, and
+append their sequence in the same transaction. Unknown is not terminal; recovery
+requires a new durable reconciliation audit reference. State persistence alone
+never supplies provider dispatch authority or evidence of provider completion.
+Reservations serialize one compute resource identity or creation slot per
+operation. Unknown outcomes retain their reservation through lease expiry;
+definitive terminal state and release commit together. Multi-resource intents
+are rejected. A database fencing counter does not fence an external provider API.
+Initial typed operation intents are the four server power actions with an explicit
+empty parameters object. Hashes bind workspace, actor, connection, target and
+review IDs to canonical typed intent; unknown fields/actions and secret-bearing
+parameters are rejected. Defining an intent does not enable an adapter or dispatch.
+
+`POST .../resources/{id}/action-reviews` accepts `{action,parameters:{}}` and
+returns a five-minute server-owned review after fresh read-only preconditions.
+Actor/target, credential and policy versions are bound; high-impact classifications
+require verified recent authentication and an explicit high-impact grant. No
+production reviewer is registered until action-specific qualification is complete.
+Confirmation first resolves the actor-scoped idempotency key, even for a consumed
+review. New acceptance rechecks current grants/versions and fresh provider
+preconditions, then consumes the review and writes operation, reservation, job,
+event and audit atomically. Queue quotas apply; a failed write rolls everything
+back. Duplicate keys with different canonical intent return a conflict.
+`POST .../operations` requires `Idempotency-Key`, `{review_id,confirmed:true}`
+and, for a high-impact review, `typed_target` plus verified recent authentication.
+It returns 202 with an operation reference and Location. The operation remains
+queued until a separately qualified dispatcher is implemented; no provider
+mutation is performed by confirmation or by the sync scheduler.
+A reclaimed/interrupted scan discards its unpublished staging and allocates a new
+attempt generation, retaining the same durable sync reference and admission
+order. The stale lease cannot write or publish later pages. No provider cursor
+is assumed restart-safe; interrupted reads restart from the first bounded page.
+
+`go run ./cmd/sama-metadata-cleanup` runs database-only batches of at most 100
+rows per class: unconsumed/unreferenced reviews expired for seven days, completed
+sync staging older than seven days and eligible terminal jobs completed more than
+seven days ago. Unknown/in-flight operations, reservations, accepted reviews,
+operation/idempotency rows and audit/events are retained. Idempotency evidence
+therefore remains beyond its 30-day minimum; audit/event retention is not shortened.
+Legacy jobs without a proven completion timestamp are not age-pruned. Repeat the
+bounded command deliberately for further batches; it makes no provider requests.
+
+Documented read adapters and the explicit disposable read-probe command are
+covered in [provider qualification](provider-qualification.md). Typed write-only
+credentials now include `contabo_v1` alongside `bearer_v1`. All production
+provider registrations remain closed until stable identity and live qualification
+are established; mocks never enable capabilities.

@@ -14,3 +14,16 @@ func TestProviderCallingProcessLimit(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkersRequireExplicitDatabaseCallingMode(t *testing.T) {
+	for _, values := range []map[string]string{
+		{"SAMA_WORKERS_ENABLED": "yes"},
+		{"SAMA_WORKERS_ENABLED": "1"},
+		{"SAMA_WORKERS_ENABLED": "1", "SAMA_DATABASE_URL": "postgres://localhost/sama", "SAMA_PROVIDER_CALLING_PROCESSES": "0"},
+	} {
+		_, err := LoadFrom(func(name string) (string, bool) { v, ok := values[name]; return v, ok }, func(string) ([]byte, error) { return nil, nil })
+		if err == nil {
+			t.Fatal("unsafe worker configuration accepted")
+		}
+	}
+}
