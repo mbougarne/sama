@@ -33,7 +33,27 @@ function page(
 }
 beforeEach(() => {
   Object.defineProperty(globalThis, 'fetch', {
-    value: fetchMock,
+    value: (url: RequestInfo | URL, options?: RequestInit) => {
+      const path = new URL(requestURL(url), 'http://localhost').pathname;
+      if (path.endsWith('/overview'))
+        return Promise.resolve({
+          status: 200,
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              connection_count: 0,
+              resource_count: 0,
+              pending_operations: 0,
+              unknown_operations: 0,
+              stale_connections: 0,
+              connections: [],
+              connections_truncated: false,
+            }),
+        } as Response);
+      if (path.endsWith('/resources') || path.endsWith('/audit-events'))
+        return Promise.resolve(page([]));
+      return fetchMock(url, options);
+    },
     configurable: true,
   });
   fetchMock.mockReset();

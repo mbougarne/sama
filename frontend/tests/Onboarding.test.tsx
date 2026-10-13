@@ -21,6 +21,7 @@ it('clears submitted secrets, invalidates preview on edits and saves the current
     }),
   );
   const view = show(<Onboarding {...scope} />);
+  fetchMock.mockResolvedValue(response(200, { data: [], next_cursor: null }));
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('Connection label'), 'Compute');
   await user.type(screen.getByLabelText('token'), 'synthetic-old');

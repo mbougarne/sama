@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from 'react';
 import { apiRequest, ApiError } from '../../api/client';
 import { Field, ProblemSummary } from '../../components/Form';
 import { Capabilities, families, path, type Schema, type Scope } from './api';
+import { Grants } from './Grants';
 
 type State = {
   family: string;
@@ -237,6 +238,7 @@ export default function Onboarding(scope: Scope) {
           <h3>Saved · verified account {state.saved.account_identity}</h3>
           <Capabilities values={state.saved.capabilities} />
           <p>Initial sync: {state.saved.sync_id}</p>
+          <Grants scope={scope} id={state.saved.id} />
         </div>
       )}
     </section>

@@ -12,7 +12,7 @@ import (
 )
 
 func (a *Auth) apiRoutes(w http.ResponseWriter, r *http.Request) {
-	if a.auditHistory(w, r) {
+	if a.overview(w, r) || a.operationReads(w, r) || a.auditHistory(w, r) {
 		return
 	}
 	if a.operationAcceptance(w, r) || a.actionReview(w, r) || a.resourceDetail(w, r) || a.resourceList(w, r) || a.syncStatus(w, r) || a.connectionRotation(w, r) || a.connectionWrites(w, r) || a.connectionSyncs(w, r) || a.validationRoutes(w, r) || a.grantRoutes(w, r) || a.connectionDisable(w, r) || a.connectionReads(w, r) || a.memberRoutes(w, r) {

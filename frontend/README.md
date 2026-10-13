@@ -95,3 +95,7 @@ detail views preserve native status and explain unavailable actions. Explicit
 refresh polls active syncs every three seconds while visible and online.
 Activity uses backend timestamps, scoped links, URL filters, bounded pages and a
 30-second stale policy. Forbidden views clear the workspace query scope.
+
+Overview reads bounded local aggregates, distinguishes loading/failure from zero,
+and keeps stale connection health and unknown operation outcomes visible. Opening
+it schedules no refresh or provider action.

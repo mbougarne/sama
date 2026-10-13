@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/overview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getWorkspaceOverview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/audit-events': {
     parameters: {
       query?: {
@@ -28,6 +46,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/workspaces/{workspace_id}/operations/{operation_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['getOperation'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/operations': {
     parameters: {
       query?: never;
@@ -37,7 +74,7 @@ export interface paths {
       };
       cookie?: never;
     };
-    get?: never;
+    get: operations['listOperations'];
     put?: never;
     post: operations['acceptOperation'];
     delete?: never;
@@ -504,6 +541,71 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    WorkspaceOverview: {
+      connection_count: number;
+      resource_count: number;
+      pending_operations: number;
+      unknown_operations: number;
+      stale_connections: number;
+      connections_truncated: boolean;
+      connections: {
+        /** Format: uuid */
+        id: string;
+        label: string;
+        provider: string;
+        account_identity: string;
+        /** @enum {string} */
+        status: 'active' | 'disabled';
+        /** Format: date-time */
+        permissions_verified_at: string | null;
+        inventory: components['schemas']['InventoryFreshness'];
+      }[];
+    };
+    /** @enum {string} */
+    OperationState:
+      | 'queued'
+      | 'dispatching'
+      | 'waiting_provider'
+      | 'reconciling'
+      | 'unknown'
+      | 'succeeded'
+      | 'failed'
+      | 'cancelled';
+    OperationEvent: {
+      sequence: number;
+      state: components['schemas']['OperationState'];
+      /** Format: date-time */
+      created_at: string;
+    };
+    OperationView: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      connection_id: string;
+      /** Format: uuid */
+      resource_id: string;
+      /** Format: uuid */
+      actor_id: string;
+      action: string;
+      state: components['schemas']['OperationState'];
+      /** @description True for the unresolved unknown state. */
+      uncertain: boolean;
+      target_name: string;
+      native_id: string;
+      provider: string;
+      account_identity: string;
+      region: string;
+      provider_reference: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      events: components['schemas']['OperationEvent'][];
+    };
+    OperationPage: {
+      data: components['schemas']['OperationView'][];
+      next_cursor: string | null;
+    };
     AuditEntry: {
       /** Format: uuid */
       id: string;
@@ -861,6 +963,29 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getWorkspaceOverview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized local totals and at most 50 connection health rows; never provider traffic. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['WorkspaceOverview'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   listAuditEvents: {
     parameters: {
       query?: {
@@ -885,6 +1010,56 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['AuditPage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  getOperation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Stored outcome preserved; unknown remains explicitly uncertain. Out-of-scope IDs return 404. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OperationView'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  listOperations: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current permission-filtered local operation evidence with bounded events. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['OperationPage'];
         };
       };
       default: components['responses']['Problem'];
