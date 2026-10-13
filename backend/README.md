@@ -405,3 +405,22 @@ covered in [provider qualification](provider-qualification.md). Typed write-only
 credentials now include `contabo_v1` alongside `bearer_v1`. All production
 provider registrations remain closed until stable identity and live qualification
 are established; mocks never enable capabilities.
+
+`GET .../audit-events` reads current permission-filtered local history with
+`actor_id`, `action` and `target_id` filters. Pages default to 50 (maximum 200),
+ordered by descending timestamp and UUID; cursors bind actor, workspace and
+filters. Connection and operation events require a current read grant; other
+workspace events are visible to administrators or their actor. Historical actor
+IDs survive membership removal, with only allowlisted metadata returned.
+`GET .../connections/{id}/grants?user_id={member_id}` returns management-only
+member grants and server-derived delegation ceilings. PUT rechecks authority.
+Connection save responses now include their authoritative validation identity,
+verification time and capabilities alongside the connection and sync references.
+
+`GET .../operations` and `GET .../operations/{id}` expose only currently granted
+local history, with stable timestamp/ID cursors and at most 20 latest events per
+row. Disabled connections retain granted history. Unknown stays uncertain; HTTP
+success is not a provider outcome. Migration 000025 adds a bounded optional opaque
+provider reference; no dispatcher is enabled. `GET .../overview` returns authorized
+local resource/operation totals and at most 50 connection health rows, including
+stale/never-observed scopes. It makes no provider calls or job submissions.

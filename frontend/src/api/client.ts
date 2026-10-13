@@ -36,6 +36,9 @@ const knownCodes: readonly Problem['code'][] = [
   'rate_limited',
   'identity_unavailable',
   'unauthenticated',
+  'unsupported_capability',
+  'provider_unavailable',
+  'credential_version_changed',
 ];
 const correlation = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 

@@ -9,7 +9,10 @@ export function App({ user }: { user: User }) {
   return (
     <Routes>
       <Route path="/" element={workspace} />
-      <Route path="/workspaces/:workspaceId/:section?" element={workspace} />
+      <Route
+        path="/workspaces/:workspaceId/:section?/:itemId?"
+        element={workspace}
+      />
       <Route
         path="*"
         element={

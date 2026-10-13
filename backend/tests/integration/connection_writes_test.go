@@ -35,6 +35,9 @@ func TestSaveAndRotationUseRequestCredentialAndAtomicAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if saved.AccountIdentity != "safe-account" || saved.VerifiedAt.IsZero() || len(saved.Capabilities) == 0 {
+		t.Fatal("save omitted its authoritative validation facts")
+	}
 	var envelope credentials.Envelope
 	if err = pool.QueryRow(ctx, `SELECT ciphertext,nonce,wrapped_data_key,wrapping_nonce,master_key_id,encryption_format FROM credential_versions WHERE connection_id=$1 AND version=1`, saved.ID).Scan(&envelope.Ciphertext, &envelope.Nonce, &envelope.WrappedKey, &envelope.WrappingNonce, &envelope.KeyID, &envelope.Format); err != nil {
 		t.Fatal(err)

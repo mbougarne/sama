@@ -25,6 +25,7 @@ type SaveInput struct {
 type Saved struct {
 	ID     uuid.UUID `json:"id"`
 	SyncID uuid.UUID `json:"sync_id"`
+	Preview
 }
 
 // Save never accepts preview facts. Preview performs fresh validation on this
@@ -78,7 +79,7 @@ func (s *ValidationService) Save(ctx context.Context, actor, scope uuid.UUID, in
 	if tx.Commit(ctx) != nil {
 		return Saved{}, workspace.ErrStore
 	}
-	return Saved{id, syncID}, nil
+	return Saved{ID: id, SyncID: syncID, Preview: preview}, nil
 }
 
 func storeEnvelope(ctx context.Context, tx pgx.Tx, scope, id uuid.UUID, version int64, envelope credentials.Envelope) error {

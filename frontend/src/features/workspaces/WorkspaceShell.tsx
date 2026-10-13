@@ -4,7 +4,11 @@ import { ApiError, getWorkspaces, type User } from '../../api/client';
 import { QueryScope } from '../../app/QueryScope';
 
 import { lazy, Suspense } from 'react';
+const OverviewPage = lazy(() => import('../overview/OverviewPage'));
+const ActivityPage = lazy(() => import('../activity/ActivityPage'));
+const ResourcesPage = lazy(() => import('../resources/ResourcesPage'));
 const SettingsPage = lazy(() => import('../settings/SettingsPage'));
+const ConnectionsPage = lazy(() => import('../connections/ConnectionsPage'));
 
 const sections = [
   'overview',
@@ -76,6 +80,18 @@ export function WorkspaceShell({ user }: { user: User }) {
         {more}
       </main>
     );
+  const Page =
+    section === 'overview'
+      ? OverviewPage
+      : section === 'settings'
+        ? SettingsPage
+        : section === 'resources'
+          ? ResourcesPage
+          : section === 'connections'
+            ? ConnectionsPage
+            : section === 'activity'
+              ? ActivityPage
+              : null;
   return (
     <QueryScope userId={user.id} workspaceId={selected.id}>
       <div className="backoffice">
@@ -126,9 +142,9 @@ export function WorkspaceShell({ user }: { user: User }) {
               ? label(section)
               : 'Page not found'}
           </h1>
-          {section === 'settings' ? (
-            <Suspense fallback={<p role="status">Loading settings…</p>}>
-              <SettingsPage
+          {Page ? (
+            <Suspense fallback={<p role="status">Loading workspace view…</p>}>
+              <Page
                 userId={user.id}
                 workspace={selected}
                 refreshAccess={() =>

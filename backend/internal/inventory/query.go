@@ -17,6 +17,7 @@ import (
 
 type Filters struct {
 	Connection uuid.UUID
+	Provider   string
 	Type       string
 	Region     string
 	Account    string
@@ -74,7 +75,7 @@ func query(ctx context.Context, pool *pgxpool.Pool, actor, scope uuid.UUID, f Fi
 	if f.Type == "" {
 		f.Type = "compute.server"
 	}
-	if limit < 1 || limit > 200 || f.Type != "compute.server" || len(f.Region) > 128 || len(f.Account) > 512 || f.Connection != uuid.Nil && f.Connection.Version() != 7 {
+	if limit < 1 || limit > 200 || f.Type != "compute.server" || len(f.Provider) > 64 || len(f.Region) > 128 || len(f.Account) > 512 || f.Connection != uuid.Nil && f.Connection.Version() != 7 {
 		return ResourcePage{}, workspace.ErrInvalid
 	}
 	after := uuid.Nil
@@ -109,7 +110,8 @@ func query(ctx context.Context, pool *pgxpool.Pool, actor, scope uuid.UUID, f Fi
  AND r.resource_type=$4 AND ($5::uuid='00000000-0000-0000-0000-000000000000' OR r.connection_id=$5)
  AND ($6='' OR r.details->>'region'=$6) AND ($7='' OR c.account_identity=$7)
  AND ($9::uuid='00000000-0000-0000-0000-000000000000' OR r.id=$9)
- ORDER BY r.id LIMIT $8`, scope, actor, after, f.Type, f.Connection, f.Region, f.Account, limit+1, target)
+ AND ($10='' OR c.provider=$10)
+ ORDER BY r.id LIMIT $8`, scope, actor, after, f.Type, f.Connection, f.Region, f.Account, limit+1, target, f.Provider)
 	if err != nil {
 		return ResourcePage{}, workspace.ErrStore
 	}

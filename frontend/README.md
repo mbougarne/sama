@@ -81,3 +81,21 @@ Owner settings use server policy versions and bounded name/queue/retention field
 Ownership transfer reviews the exact member UUID and impact before confirmation.
 Conflicts require reviewing current data; permission denials offer access refresh.
 Changing workspace or signing out discards drafts and invitation proof.
+
+Connections supports typed write-only onboarding. Test is a non-mutating preview;
+Save submits and revalidates the current credential and displays its authoritative
+account/capabilities. Every submission clears secret fields. Production provider
+registrations remain closed pending live qualification.
+
+Connection health keeps each account's verification and inventory freshness
+visible. Rotation and confirmed disabling refetch affected data; disabling keeps
+accepted work visible. Grant editing reads current server delegation ceilings.
+Resources uses URL filters and bounded cursor pages over local observations;
+detail views preserve native status and explain unavailable actions. Explicit
+refresh polls active syncs every three seconds while visible and online.
+Activity uses backend timestamps, scoped links, URL filters, bounded pages and a
+30-second stale policy. Forbidden views clear the workspace query scope.
+
+Overview reads bounded local aggregates, distinguishes loading/failure from zero,
+and keeps stale connection health and unknown operation outcomes visible. Opening
+it schedules no refresh or provider action.
