@@ -10,6 +10,25 @@ info:
 servers:
   - url: /
 paths:
+  /api/v1/workspaces/{workspace_id}/audit-events:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+      - {name: cursor, in: query, schema: {type: string, maxLength: 1024}}
+      - {name: actor_id, in: query, schema: {type: string, format: uuid}}
+      - {name: action, in: query, schema: {type: string, maxLength: 64}}
+      - {name: target_id, in: query, schema: {type: string, format: uuid}}
+    get:
+      operationId: listAuditEvents
+      security: [{session: []}]
+      responses:
+        '200':
+          description: Current permission-filtered history in descending timestamp/ID order; no provider traffic.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditPage'}
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v1/workspaces/{workspace_id}/operations:
     parameters:
       - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -86,6 +105,7 @@ paths:
       - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
       - {name: cursor, in: query, schema: {type: string, maxLength: 1024}}
       - {name: connection_id, in: query, schema: {type: string, format: uuid}}
+      - {name: provider, in: query, schema: {type: string, maxLength: 64}}
       - {name: type, in: query, schema: {type: string, enum: [compute.server]}}
       - {name: region, in: query, schema: {type: string, maxLength: 128}}
       - {name: account, in: query, schema: {type: string, maxLength: 512}}
@@ -154,13 +174,7 @@ paths:
           description: Validated encrypted connection and initial sync committed atomically.
           content:
             application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [id, sync_id]
-                properties:
-                  id: {type: string, format: uuid}
-                  sync_id: {type: string, format: uuid}
+              schema: {$ref: '#/components/schemas/SavedConnection'}
         default:
           $ref: '#/components/responses/Problem'
   /api/v1/workspaces/{workspace_id}/connections/{connection_id}:
@@ -324,17 +338,21 @@ paths:
     get:
       operationId: getOwnConnectionGrant
       security: [{session: []}]
+      parameters:
+        - {name: user_id, in: query, schema: {type: string, format: uuid}, description: Management-only member projection with current ceilings.}
       responses:
         '200':
           description: The current caller's explicit action classes; empty means denied.
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: false
-                required: [actions]
-                properties:
-                  actions: {$ref: '#/components/schemas/GrantActions'}
+                oneOf:
+                  - {$ref: '#/components/schemas/GrantView'}
+                  - type: object
+                    additionalProperties: false
+                    required: [actions]
+                    properties:
+                      actions: {$ref: '#/components/schemas/GrantActions'}
         default:
           $ref: '#/components/responses/Problem'
     put:
@@ -760,6 +778,44 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    AuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, actor_kind, actor_id, action, created_at, metadata]
+      properties:
+        id: {type: string, format: uuid}
+        actor_kind: {type: string, enum: [user, system, installation]}
+        actor_id: {type: [string, 'null'], format: uuid}
+        action: {type: string}
+        created_at: {type: string, format: date-time}
+        metadata:
+          type: object
+          additionalProperties: false
+          properties:
+            connection_id: {type: string, format: uuid}
+            operation_id: {type: string, format: uuid}
+            resource_id: {type: string, format: uuid}
+            member_id: {type: string, format: uuid}
+            role: {type: string}
+            policy_version: {type: string}
+            reason_code: {type: string}
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data: {type: array, maxItems: 200, items: {$ref: '#/components/schemas/AuditEntry'}}
+        next_cursor: {type: [string, 'null']}
+    SavedConnection:
+      type: object
+      additionalProperties: false
+      required: [id, sync_id, account_identity, verified_at, capabilities]
+      properties:
+        id: {type: string, format: uuid}
+        sync_id: {type: string, format: uuid}
+        account_identity: {type: string, maxLength: 512}
+        verified_at: {type: string, format: date-time}
+        capabilities: {$ref: '#/components/schemas/Capabilities'}
     AcceptedOperation:
       type: object
       additionalProperties: false
@@ -931,6 +987,15 @@ components:
         account_identity: {type: string, maxLength: 512}
         verified_at: {type: string, format: date-time}
         capabilities: {type: array, items: {$ref: '#/components/schemas/Capability'}}
+    GrantView:
+      type: object
+      additionalProperties: false
+      required: [user_id, actions, allowed_actions, editable]
+      properties:
+        user_id: {type: string, format: uuid}
+        actions: {$ref: '#/components/schemas/GrantActions'}
+        allowed_actions: {$ref: '#/components/schemas/GrantActions'}
+        editable: {type: boolean}
     GrantActions:
       type: array
       maxItems: 4

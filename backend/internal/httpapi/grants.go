@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"sama/backend/internal/identifier"
@@ -26,6 +27,22 @@ func (a *Auth) grantRoutes(w http.ResponseWriter, r *http.Request) bool {
 	}
 	switch r.Method {
 	case http.MethodGet:
+		if r.URL.RawQuery != "" {
+			q, queryErr := url.ParseQuery(r.URL.RawQuery)
+			target, err := identifier.Parse(q.Get("user_id"))
+			if queryErr != nil || err != nil || len(q) != 1 || len(q["user_id"]) != 1 {
+				a.memberFailure(w, r, workspace.ErrInvalid)
+				return true
+			}
+			view, err := workspace.ReadGrantView(r.Context(), a.Pool, m.UserID, m.WorkspaceID, connection, target)
+			if err != nil {
+				a.memberFailure(w, r, err)
+				return true
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(view)
+			return true
+		}
 		actions, err := workspace.ReadGrant(r.Context(), a.Pool, m.UserID, m.WorkspaceID, connection)
 		if err != nil {
 			a.memberFailure(w, r, err)

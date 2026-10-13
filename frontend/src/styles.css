@@ -192,6 +192,18 @@ input:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.inventory-row {
+  margin-block: 1.5rem;
+  padding: 1rem;
+  background: var(--cloud);
+  border: 1px solid var(--sky-200);
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+fieldset {
+  min-width: 0;
+}
+
 dialog {
   color: var(--ink);
   border: 2px solid var(--sky-700);

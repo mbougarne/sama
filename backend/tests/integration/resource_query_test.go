@@ -44,7 +44,7 @@ func TestResourceQueryFiltersAndCursorCannotExposeDeniedConnections(t *testing.T
 	if err != nil || len(second.Data) != 3 || second.NextCursor != nil || first.Data[49].ID.String() >= second.Data[0].ID.String() {
 		t.Fatal("cursor ordering", err)
 	}
-	for _, filters := range []inventory.Filters{{Region: "other"}, {Account: "other"}, {Connection: entityID(t)}} {
+	for _, filters := range []inventory.Filters{{Provider: "other"}, {Region: "other"}, {Account: "other"}, {Connection: entityID(t)}} {
 		if _, err = inventory.List(ctx, pool, actor, lease.Workspace, filters, *first.NextCursor, 50); err != workspace.ErrInvalid {
 			t.Fatal("changed filters accepted cursor", err)
 		}
@@ -58,6 +58,10 @@ func TestResourceQueryFiltersAndCursorCannotExposeDeniedConnections(t *testing.T
 	_, other := seedIdentity(t, pool)
 	if _, err = inventory.List(ctx, pool, actor, other, inventory.Filters{}, *first.NextCursor, 50); err != workspace.ErrInvalid {
 		t.Fatal("cross-tenant cursor", err)
+	}
+	filtered, err := inventory.List(ctx, pool, actor, lease.Workspace, inventory.Filters{Provider: "missing"}, "", 50)
+	if err != nil || len(filtered.Data) != 0 {
+		t.Fatal("provider filter", err)
 	}
 	exact, err := inventory.List(ctx, pool, actor, lease.Workspace, inventory.Filters{Connection: lease.Connection, Region: "test-region", Account: "account"}, "", 200)
 	if err != nil || len(exact.Data) != 53 {

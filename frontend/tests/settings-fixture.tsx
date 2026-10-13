@@ -48,3 +48,6 @@ export function show(children: ReactNode) {
   );
   return { ...view, client };
 }
+
+export const requestURL = (url: RequestInfo | URL) =>
+  typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;

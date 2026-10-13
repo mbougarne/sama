@@ -405,3 +405,14 @@ covered in [provider qualification](provider-qualification.md). Typed write-only
 credentials now include `contabo_v1` alongside `bearer_v1`. All production
 provider registrations remain closed until stable identity and live qualification
 are established; mocks never enable capabilities.
+
+`GET .../audit-events` reads current permission-filtered local history with
+`actor_id`, `action` and `target_id` filters. Pages default to 50 (maximum 200),
+ordered by descending timestamp and UUID; cursors bind actor, workspace and
+filters. Connection and operation events require a current read grant; other
+workspace events are visible to administrators or their actor. Historical actor
+IDs survive membership removal, with only allowlisted metadata returned.
+`GET .../connections/{id}/grants?user_id={member_id}` returns management-only
+member grants and server-derived delegation ceilings. PUT rechecks authority.
+Connection save responses now include their authoritative validation identity,
+verification time and capabilities alongside the connection and sync references.

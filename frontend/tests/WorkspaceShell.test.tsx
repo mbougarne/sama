@@ -1,8 +1,9 @@
 import { beforeEach, expect, it, jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
+import { requestURL } from './settings-fixture';
 import { WorkspaceShell } from '../src/features/workspaces/WorkspaceShell';
 
 const user = {
@@ -57,7 +58,11 @@ function show(path = '/') {
   return client;
 }
 it('selects a sole authorized workspace without a picker and supports keyboard navigation', async () => {
-  fetchMock.mockResolvedValue(page([first]));
+  fetchMock.mockImplementation((url) =>
+    Promise.resolve(
+      page(requestURL(url).includes('/resources') ? [] : [first]),
+    ),
+  );
   show();
   await screen.findByRole('heading', { name: 'Overview' });
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
@@ -90,14 +95,22 @@ it('switches URL scope through an accessible selector and never shows unknown wo
   expect(screen.getByRole('combobox')).toHaveValue(second.id);
 });
 it('does not render a scope from an unauthorized URL', async () => {
-  fetchMock.mockResolvedValue(page([first]));
+  fetchMock.mockImplementation((url) =>
+    Promise.resolve(
+      page(requestURL(url).includes('/resources') ? [] : [first]),
+    ),
+  );
   show(`/workspaces/${second.id}/resources`);
   await screen.findByRole('heading', { name: 'Workspace unavailable' });
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
   expect(screen.queryByText(second.name)).not.toBeInTheDocument();
 });
 it('removes a workspace view while access is revalidated and after removal', async () => {
-  fetchMock.mockResolvedValue(page([first]));
+  fetchMock.mockImplementation((url) =>
+    Promise.resolve(
+      page(requestURL(url).includes('/resources') ? [] : [first]),
+    ),
+  );
   const client = show(`/workspaces/${first.id}/resources`);
   await screen.findByRole('heading', { name: 'Resources' });
   let resolve!: (value: Response) => void;
@@ -136,4 +149,22 @@ it('can find an authorized workspace on a later bounded page', async () => {
   expect((fetchMock.mock.calls[1]![0] as URL).href).toContain(
     `cursor=${first.id}`,
   );
+});
+
+it('renders the implemented feature inside the main landmark for multiple workspaces', async () => {
+  fetchMock.mockImplementation((url) =>
+    Promise.resolve(
+      page(requestURL(url).includes('/resources') ? [] : [first, second]),
+    ),
+  );
+  show(`/workspaces/${first.id}/resources`);
+  const filter = await screen.findByRole('group', { name: 'Resource filters' });
+  expect(
+    within(document.getElementById('main-content')!).getByRole('group', {
+      name: 'Resource filters',
+    }),
+  ).toBe(filter);
+  expect(
+    screen.queryByText('This workspace section is not available yet.'),
+  ).not.toBeInTheDocument();
 });

@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+  '/api/v1/workspaces/{workspace_id}/audit-events': {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+        actor_id?: string;
+        action?: string;
+        target_id?: string;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    get: operations['listAuditEvents'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/operations': {
     parameters: {
       query?: never;
@@ -66,6 +90,7 @@ export interface paths {
         limit?: number;
         cursor?: string;
         connection_id?: string;
+        provider?: string;
         type?: 'compute.server';
         region?: string;
         account?: string;
@@ -479,6 +504,44 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AuditEntry: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      actor_kind: 'user' | 'system' | 'installation';
+      /** Format: uuid */
+      actor_id: string | null;
+      action: string;
+      /** Format: date-time */
+      created_at: string;
+      metadata: {
+        /** Format: uuid */
+        connection_id?: string;
+        /** Format: uuid */
+        operation_id?: string;
+        /** Format: uuid */
+        resource_id?: string;
+        /** Format: uuid */
+        member_id?: string;
+        role?: string;
+        policy_version?: string;
+        reason_code?: string;
+      };
+    };
+    AuditPage: {
+      data: components['schemas']['AuditEntry'][];
+      next_cursor: string | null;
+    };
+    SavedConnection: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      sync_id: string;
+      account_identity: string;
+      /** Format: date-time */
+      verified_at: string;
+      capabilities: components['schemas']['Capabilities'];
+    };
     AcceptedOperation: {
       /** Format: uuid */
       id: string;
@@ -660,6 +723,13 @@ export interface components {
       verified_at: string;
       capabilities: components['schemas']['Capability'][];
     };
+    GrantView: {
+      /** Format: uuid */
+      user_id: string;
+      actions: components['schemas']['GrantActions'];
+      allowed_actions: components['schemas']['GrantActions'];
+      editable: boolean;
+    };
     GrantActions: ('read' | 'refresh' | 'operate' | 'high_impact')[];
     WorkspaceSettings: {
       name: string;
@@ -791,6 +861,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  listAuditEvents: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+        actor_id?: string;
+        action?: string;
+        target_id?: string;
+      };
+      header?: never;
+      path: {
+        workspace_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current permission-filtered history in descending timestamp/ID order; no provider traffic. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AuditPage'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
   acceptOperation: {
     parameters: {
       query?: never;
@@ -890,6 +989,7 @@ export interface operations {
         limit?: number;
         cursor?: string;
         connection_id?: string;
+        provider?: string;
         type?: 'compute.server';
         region?: string;
         account?: string;
@@ -995,12 +1095,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            sync_id: string;
-          };
+          'application/json': components['schemas']['SavedConnection'];
         };
       };
       default: components['responses']['Problem'];
@@ -1214,7 +1309,10 @@ export interface operations {
   };
   getOwnConnectionGrant: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Management-only member projection with current ceilings. */
+        user_id?: string;
+      };
       header?: never;
       path: {
         workspace_id: string;
@@ -1230,9 +1328,11 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': {
-            actions: components['schemas']['GrantActions'];
-          };
+          'application/json':
+            | components['schemas']['GrantView']
+            | {
+                actions: components['schemas']['GrantActions'];
+              };
         };
       };
       default: components['responses']['Problem'];
