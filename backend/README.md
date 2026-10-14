@@ -424,3 +424,53 @@ success is not a provider outcome. Migration 000025 adds a bounded optional opaq
 provider reference; no dispatcher is enabled. `GET .../overview` returns authorized
 local resource/operation totals and at most 50 connection health rows, including
 stale/never-observed scopes. It makes no provider calls or job submissions.
+
+## Durable operation execution and recovery
+
+`SAMA_ENABLED_MUTATIONS` is an optional comma-separated list of exact
+`provider/family:action` switches. Empty is disabled. Switches only narrow the
+compiled qualified registry and never grant provider/account permissions. The
+production mutation and reviewer registries remain empty pending action-specific
+live qualification. Changing switches requires a process restart and invalidates
+bound reviews. Inspection/history remain independent of mutation enablement.
+
+The registered version-3 operation worker commits `dispatching` before submission,
+shares bounded connection admission/cooldowns with review and observation calls,
+and uses a 30-second call deadline. A successor observes every existing dispatch
+marker; it never resubmits. Native completion evidence is required, including for
+reboot. Pending observations use jitter and one durable deadline/attempt budget;
+exhaustion leaves unknown reserved. Proven success enqueues an independently
+authorized inventory refresh where permitted. Revoked refresh authority retains
+honest last-known inventory. Local precondition checks cannot fence changes made
+directly at a provider that lacks compare-and-swap.
+
+`POST .../operations/{id}/cancel` accepts `{}` and cancels only queued work.
+`POST .../operations/{id}/reconciliations` accepts `{}` and coalesces a five-minute
+read-only recheck of reserved unknown work. `POST .../operations/{id}/reservation-release`
+requires an owner with read/operation/high-impact grants, verified recent login,
+`typed_target`, and `residual_risk_acknowledged:true`. It preserves unknown intent
+and a durable resolution/audit record; it never retries. History includes
+`reservation_released` so residual uncertainty remains visible.
+
+Apply migrations 000026–000028, then reapply `deploy/postgres/grants.sql`.
+The installation recovery gate starts closed and is read-only for the runtime.
+Using the separate migration database identity, run:
+
+```sh
+go run ./cmd/sama-dispatch-recovery status
+go run ./cmd/sama-dispatch-recovery close
+go run ./cmd/sama-dispatch-recovery open <inspected-version>
+```
+
+Before restoring a backup, stop provider-calling processes and disable provider
+egress. After restore, run `close` before starting any worker: a restored snapshot
+can contain an old open gate; Sama cannot automatically detect arbitrary database
+rollback. Observe/reconcile unresolved submissions while closed, inspect status
+and scoped history, then explicitly reopen at the reported version. Reserved
+unknown/submitted work blocks reopening. Owner-reviewed releases remain unknown
+but are no longer reserved. Closing prevents new markers; already submitted cloud
+work may still finish. Database restore never reverses provider effects.
+
+Fault tests use only a loopback fake provider, task-owned child workers and
+PostgreSQL fixtures; no real mutation adapter is enabled by those tests. Live
+provider/crash/rotation/permission acceptance is still required for each adapter.

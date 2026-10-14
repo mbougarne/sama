@@ -34,21 +34,23 @@ type Event struct {
 var safeCode = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 var metadataFields = map[string]map[string]bool{
-	"connection.grants_changed":     {"connection_id": true, "member_id": true},
-	"connection.grants_denied":      {"connection_id": true, "member_id": true},
-	"invitation.created":            {"role": true},
-	"auth.logout":                   {},
-	"auth.login":                    {},
-	"workspace.settings_changed":    {"policy_version": true},
-	"workspace.created":             {},
-	"membership.changed":            {"member_id": true, "role": true},
-	"connection.created":            {"connection_id": true},
-	"connection.credential_rotated": {"connection_id": true},
-	"connection.disabled":           {"connection_id": true},
-	"operation.accepted":            {"operation_id": true, "resource_id": true},
-	"operation.completed":           {"operation_id": true, "resource_id": true},
-	"operation.failed":              {"operation_id": true, "resource_id": true, "reason_code": true},
-	"operation.reconciled":          {"operation_id": true, "resource_id": true, "reason_code": true},
+	"connection.grants_changed":      {"connection_id": true, "member_id": true},
+	"connection.grants_denied":       {"connection_id": true, "member_id": true},
+	"invitation.created":             {"role": true},
+	"auth.logout":                    {},
+	"auth.login":                     {},
+	"workspace.settings_changed":     {"policy_version": true},
+	"workspace.created":              {},
+	"membership.changed":             {"member_id": true, "role": true},
+	"connection.created":             {"connection_id": true},
+	"connection.credential_rotated":  {"connection_id": true},
+	"connection.disabled":            {"connection_id": true},
+	"operation.accepted":             {"operation_id": true, "resource_id": true},
+	"operation.completed":            {"operation_id": true, "resource_id": true},
+	"operation.failed":               {"operation_id": true, "resource_id": true, "reason_code": true},
+	"operation.reconciled":           {"operation_id": true, "resource_id": true, "reason_code": true},
+	"operation.cancelled":            {"operation_id": true, "resource_id": true, "reason_code": true},
+	"operation.reservation_released": {"operation_id": true, "resource_id": true, "reason_code": true},
 }
 
 // NewID must be called before opening a multi-row transaction that will append

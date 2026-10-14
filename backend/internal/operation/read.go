@@ -18,22 +18,23 @@ type EventView struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 type View struct {
-	ID                uuid.UUID   `json:"id"`
-	ConnectionID      uuid.UUID   `json:"connection_id"`
-	ResourceID        uuid.UUID   `json:"resource_id"`
-	ActorID           uuid.UUID   `json:"actor_id"`
-	Action            string      `json:"action"`
-	State             string      `json:"state"`
-	Uncertain         bool        `json:"uncertain"`
-	TargetName        string      `json:"target_name"`
-	NativeID          string      `json:"native_id"`
-	Provider          string      `json:"provider"`
-	AccountIdentity   string      `json:"account_identity"`
-	Region            string      `json:"region"`
-	ProviderReference *string     `json:"provider_reference"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	Events            []EventView `json:"events"`
+	ID                  uuid.UUID   `json:"id"`
+	ConnectionID        uuid.UUID   `json:"connection_id"`
+	ResourceID          uuid.UUID   `json:"resource_id"`
+	ActorID             uuid.UUID   `json:"actor_id"`
+	Action              string      `json:"action"`
+	State               string      `json:"state"`
+	ReservationReleased bool        `json:"reservation_released"`
+	Uncertain           bool        `json:"uncertain"`
+	TargetName          string      `json:"target_name"`
+	NativeID            string      `json:"native_id"`
+	Provider            string      `json:"provider"`
+	AccountIdentity     string      `json:"account_identity"`
+	Region              string      `json:"region"`
+	ProviderReference   *string     `json:"provider_reference"`
+	CreatedAt           time.Time   `json:"created_at"`
+	UpdatedAt           time.Time   `json:"updated_at"`
+	Events              []EventView `json:"events"`
 }
 type Page struct {
 	Data       []View  `json:"data"`
@@ -68,7 +69,7 @@ func Read(ctx context.Context, pool *pgxpool.Pool, actor, scope, target uuid.UUI
 		}
 	}
 	rows, err := pool.Query(ctx, `SELECT o.id,o.connection_id,o.resource_id,o.actor_id,o.action,o.state,ar.target_name,
- r.native_id,c.provider,c.account_identity,COALESCE(r.details->>'region',''),o.provider_reference,o.created_at,o.updated_at,
+ r.native_id,c.provider,c.account_identity,COALESCE(r.details->>'region',''),o.provider_reference,o.created_at,o.updated_at,EXISTS(SELECT 1 FROM operation_resolutions x WHERE (x.workspace_id,x.operation_id)=(o.workspace_id,o.id)),
  COALESCE((SELECT jsonb_agg(e ORDER BY e.sequence) FROM
  (SELECT sequence,CASE WHEN to_state IN ('queued','dispatching','waiting_provider','reconciling','unknown','succeeded','failed','cancelled') THEN to_state ELSE 'unknown' END AS state,created_at
   FROM operation_events WHERE workspace_id=o.workspace_id AND operation_id=o.id ORDER BY sequence DESC LIMIT 20) e),'[]'::jsonb)
@@ -89,7 +90,7 @@ func Read(ctx context.Context, pool *pgxpool.Pool, actor, scope, target uuid.UUI
 	result := Page{Data: []View{}}
 	for rows.Next() {
 		var v View
-		if rows.Scan(&v.ID, &v.ConnectionID, &v.ResourceID, &v.ActorID, &v.Action, &v.State, &v.TargetName, &v.NativeID, &v.Provider, &v.AccountIdentity, &v.Region, &v.ProviderReference, &v.CreatedAt, &v.UpdatedAt, &v.Events) != nil {
+		if rows.Scan(&v.ID, &v.ConnectionID, &v.ResourceID, &v.ActorID, &v.Action, &v.State, &v.TargetName, &v.NativeID, &v.Provider, &v.AccountIdentity, &v.Region, &v.ProviderReference, &v.CreatedAt, &v.UpdatedAt, &v.ReservationReleased, &v.Events) != nil {
 			return Page{}, workspace.ErrStore
 		}
 		v.Uncertain = v.State == "unknown"

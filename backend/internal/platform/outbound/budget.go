@@ -35,6 +35,27 @@ func NewBudget() *Budget {
 
 func (b *Budget) signal() { close(b.changed); b.changed = make(chan struct{}) }
 
+type callBudgetKey struct{}
+type callReservation struct {
+	budget     *Budget
+	connection uuid.UUID
+	scope      string
+}
+
+// Call shares admission/cooldown across adapter reads and mutations. Nested
+// Client calls reuse this slot. Consume/close responses before work returns.
+func (b *Budget) Call(ctx context.Context, connection uuid.UUID, scope string, work func(context.Context) error) error {
+	if b == nil || work == nil {
+		return ErrNetwork
+	}
+	release, err := b.acquire(ctx, connection, scope)
+	if err != nil {
+		return err
+	}
+	defer release()
+	return work(context.WithValue(ctx, callBudgetKey{}, callReservation{b, connection, scope}))
+}
+
 func (b *Budget) acquire(ctx context.Context, connection uuid.UUID, scope string) (func(), error) {
 	if connection.Version() != 7 || scope == "" || len(scope) > 512 {
 		return nil, ErrNetwork
@@ -147,7 +168,12 @@ type releaseBody struct {
 func (b releaseBody) Close() error { defer b.release(); return b.ReadCloser.Close() }
 
 func (t budgetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	release, err := t.budget.acquire(r.Context(), t.connection, t.scope)
+	reserved, ok := r.Context().Value(callBudgetKey{}).(callReservation)
+	release := func() {}
+	var err error
+	if !ok || reserved.budget != t.budget || reserved.connection != t.connection || reserved.scope != t.scope {
+		release, err = t.budget.acquire(r.Context(), t.connection, t.scope)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -20,6 +20,7 @@ import (
 	"sama/backend/internal/operation"
 	"sama/backend/internal/platform"
 	"sama/backend/internal/platform/credentials"
+	"sama/backend/internal/platform/outbound"
 )
 
 func main() {
@@ -79,8 +80,9 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	// Keyring failure closes credential readiness, not process liveness.
 	ring, _ := credentials.LoadKeyring(config.KeyringFile)
+	budget := outbound.NewBudget()
 	if auth != nil {
-		auth.Operations = operation.NewService(pool, auth.Sessions, config.Budgets.ProviderCallingProcesses == 1, nil)
+		auth.Operations = operation.NewService(pool, auth.Sessions, config.Budgets.ProviderCallingProcesses == 1, nil).WithPolicy(operation.NewPolicy(config.MutationSwitches, nil)).WithBudget(budget)
 		auth.ConnectionValidation = connection.NewValidationService(pool, ring, config.Budgets.ProviderCallingProcesses == 1, nil)
 	}
 	workerErrors := make(chan error, 1)
@@ -88,9 +90,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	defer stopWorkers()
 	if config.WorkersEnabled {
 		scanner := inventory.Scanner{Pool: pool}
-		scheduler := job.Scheduler{Pool: pool, Now: time.Now}
+		dispatcher := operation.Dispatcher{Service: operation.NewService(pool, nil, config.Budgets.ProviderCallingProcesses == 1, nil).WithPolicy(operation.NewPolicy(config.MutationSwitches, nil)).WithBudget(budget)}
+		scheduler := job.Scheduler{Pool: pool, Now: time.Now, Operations: true, Maintenance: func(ctx context.Context) error { return operation.Expire(ctx, pool) }}
 		runner, err := job.NewRunner(scheduler, config.Budgets.WorkerCount, config.Timeouts.Shutdown, map[job.Key]job.Handler{
 			{Type: "connection_refresh", Version: 2}: {Work: scanner.Scan, Finish: scanner.Complete},
+			{Type: "operation_dispatch", Version: 3}: {Work: dispatcher.Work, Finish: dispatcher.Finish},
 		}, func(ctx context.Context, lease job.Lease) error {
 			err := scanner.Complete(ctx, lease, job.ErrJob)
 			if errors.Is(err, job.ErrLease) {

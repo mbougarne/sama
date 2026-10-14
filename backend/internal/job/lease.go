@@ -21,13 +21,20 @@ type Lease struct {
 }
 
 type Scheduler struct {
-	Pool *pgxpool.Pool
-	Now  func() time.Time
+	Operations  bool
+	Maintenance func(context.Context) error
+	Pool        *pgxpool.Pool
+	Now         func() time.Time
 }
 
 func (s Scheduler) Claim(ctx context.Context, owner uuid.UUID) (Lease, error) {
 	if owner == uuid.Nil {
 		return Lease{}, ErrLease
+	}
+	if s.Maintenance != nil {
+		if err := s.Maintenance(ctx); err != nil {
+			return Lease{}, err
+		}
 	}
 	now := s.Now()
 	token, err := uuid.NewRandom()
@@ -41,13 +48,13 @@ func (s Scheduler) Claim(ctx context.Context, owner uuid.UUID) (Lease, error) {
 	defer tx.Rollback(ctx)
 	var lease Lease
 	err = tx.QueryRow(ctx, `WITH candidate AS (
-        SELECT id FROM jobs WHERE type='connection_refresh' AND deadline>$1 AND attempts<100
+        SELECT id FROM jobs WHERE (type='connection_refresh' OR ($4 AND type='operation_dispatch' AND payload_version=3)) AND deadline>$1 AND attempts<100
         AND ((state='queued' AND next_run_at<=$1) OR (state='running' AND lease_expires_at<=$1))
         ORDER BY next_run_at,id FOR UPDATE SKIP LOCKED LIMIT 1)
         UPDATE jobs j SET state='running',lease_owner=$2,lease_token=$3,
         lease_expires_at=LEAST($1+interval '60 seconds',deadline),attempts=attempts+1
         FROM candidate WHERE j.id=candidate.id
-        RETURNING j.id,j.workspace_id,j.connection_id,j.type,j.payload_version,j.deadline`, now, owner, token).Scan(&lease.ID, &lease.Workspace, &lease.Connection, &lease.Type, &lease.PayloadVersion, &lease.Deadline)
+        RETURNING j.id,j.workspace_id,j.connection_id,j.type,j.payload_version,j.deadline`, now, owner, token, s.Operations).Scan(&lease.ID, &lease.Workspace, &lease.Connection, &lease.Type, &lease.PayloadVersion, &lease.Deadline)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Lease{}, ErrNoJob
 	}
