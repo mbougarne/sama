@@ -83,6 +83,63 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/workspaces/{workspace_id}/operations/{operation_id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['cancelOperation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/operations/{operation_id}/reconciliations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['recheckOperation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/workspaces/{workspace_id}/operations/{operation_id}/reservation-release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['releaseOperationReservation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/workspaces/{workspace_id}/resources/{resource_id}/action-reviews': {
     parameters: {
       query?: never;
@@ -590,6 +647,8 @@ export interface components {
       state: components['schemas']['OperationState'];
       /** @description True for the unresolved unknown state. */
       uncertain: boolean;
+      /** @description Owner acknowledged residual risk; this does not establish provider success. */
+      reservation_released: boolean;
       target_name: string;
       native_id: string;
       provider: string;
@@ -643,6 +702,11 @@ export interface components {
       /** Format: date-time */
       verified_at: string;
       capabilities: components['schemas']['Capabilities'];
+    };
+    ReservationRelease: {
+      /** @enum {boolean} */
+      residual_risk_acknowledged: true;
+      typed_target: string;
     };
     AcceptedOperation: {
       /** Format: uuid */
@@ -1094,6 +1158,99 @@ export interface operations {
       202: {
         headers: {
           Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AcceptedOperation'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  cancelOperation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Cancel queued work atomically; dispatching or submitted returns 409. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AcceptedOperation'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  recheckOperation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Coalesce a five-minute read-only recheck of an unknown reserved outcome; never resubmit. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AcceptedOperation'];
+        };
+      };
+      default: components['responses']['Problem'];
+    };
+  };
+  releaseOperationReservation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        'X-CSRF-Token': string;
+      };
+      path: {
+        workspace_id: string;
+        operation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReservationRelease'];
+      };
+    };
+    responses: {
+      /** @description Owner with recent authentication records residual risk; outcome remains unknown. */
+      200: {
+        headers: {
           [name: string]: unknown;
         };
         content: {

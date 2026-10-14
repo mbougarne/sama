@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,15 +31,16 @@ const (
 
 // Config is the immutable process configuration loaded during startup.
 type Config struct {
-	WorkersEnabled bool
-	KeyringFile    string
-	AssetsDir      string
-	HTTPAddr       string
-	PublicOrigin   url.URL
-	Database       DatabaseConfig
-	Timeouts       TimeoutConfig
-	Budgets        BudgetConfig
-	TrustedProxies []netip.Prefix
+	MutationSwitches []string
+	WorkersEnabled   bool
+	KeyringFile      string
+	AssetsDir        string
+	HTTPAddr         string
+	PublicOrigin     url.URL
+	Database         DatabaseConfig
+	Timeouts         TimeoutConfig
+	Budgets          BudgetConfig
+	TrustedProxies   []netip.Prefix
 }
 
 type DatabaseConfig struct {
@@ -90,6 +92,7 @@ var configurationCodes = map[string]bool{
 	"invalid_timeout":                        true,
 	"invalid_budget":                         true,
 	"invalid_trusted_proxy":                  true,
+	"invalid_mutation_policy":                true,
 }
 
 func configError(code string) error { return &ConfigError{code: code} }
@@ -145,17 +148,33 @@ func LoadFrom(lookup EnvLookup, readFile FileRead) (Config, error) {
 	}
 
 	assetsDir, _ := lookup("SAMA_ASSET_DIR")
+	mutationText, _ := lookup("SAMA_ENABLED_MUTATIONS")
+	var mutations []string
+	seen := map[string]bool{}
+	if len(mutationText) > 4096 {
+		return Config{}, configError("invalid_mutation_policy")
+	}
+	if mutationText != "" {
+		for _, key := range strings.Split(mutationText, ",") {
+			if !regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}/[a-z][a-z0-9_]{0,31}:[a-z][a-z0-9_.]{0,63}$`).MatchString(key) || seen[key] || len(mutations) >= 32 {
+				return Config{}, configError("invalid_mutation_policy")
+			}
+			seen[key] = true
+			mutations = append(mutations, key)
+		}
+	}
 	keyringFile, _ := lookup("SAMA_KEYRING_FILE")
 	return Config{
-		WorkersEnabled: enabled == 1,
-		KeyringFile:    keyringFile,
-		AssetsDir:      assetsDir,
-		HTTPAddr:       address,
-		PublicOrigin:   origin,
-		Database:       DatabaseConfig{URL: databaseURL, MigrationURL: migrationDatabaseURL},
-		Timeouts:       timeouts,
-		Budgets:        budgets,
-		TrustedProxies: proxies,
+		MutationSwitches: mutations,
+		WorkersEnabled:   enabled == 1,
+		KeyringFile:      keyringFile,
+		AssetsDir:        assetsDir,
+		HTTPAddr:         address,
+		PublicOrigin:     origin,
+		Database:         DatabaseConfig{URL: databaseURL, MigrationURL: migrationDatabaseURL},
+		Timeouts:         timeouts,
+		Budgets:          budgets,
+		TrustedProxies:   proxies,
 	}, nil
 }
 

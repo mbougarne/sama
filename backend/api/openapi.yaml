@@ -104,6 +104,75 @@ paths:
               schema: {$ref: '#/components/schemas/AcceptedOperation'}
         default:
           $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/operations/{operation_id}/cancel:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: operation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: cancelOperation
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200':
+          description: Cancel queued work atomically; dispatching or submitted returns 409.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedOperation'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/operations/{operation_id}/reconciliations:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: operation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: recheckOperation
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: false}
+      responses:
+        '200':
+          description: Coalesce a five-minute read-only recheck of an unknown reserved outcome; never resubmit.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedOperation'}
+        default:
+          $ref: '#/components/responses/Problem'
+  /api/v1/workspaces/{workspace_id}/operations/{operation_id}/reservation-release:
+    parameters:
+      - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
+      - {name: operation_id, in: path, required: true, schema: {type: string, format: uuid}}
+    post:
+      operationId: releaseOperationReservation
+      security: [{session: []}]
+      parameters:
+        - {name: Origin, in: header, required: true, schema: {type: string}}
+        - {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReservationRelease'}
+      responses:
+        '200':
+          description: Owner with recent authentication records residual risk; outcome remains unknown.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AcceptedOperation'}
+        default:
+          $ref: '#/components/responses/Problem'
   /api/v1/workspaces/{workspace_id}/resources/{resource_id}/action-reviews:
     parameters:
       - {name: workspace_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -861,7 +930,7 @@ components:
     OperationView:
       type: object
       additionalProperties: false
-      required: [id, connection_id, resource_id, actor_id, action, state, uncertain, target_name, native_id, provider, account_identity, region, provider_reference, created_at, updated_at, events]
+      required: [id, connection_id, resource_id, actor_id, action, state, uncertain, reservation_released, target_name, native_id, provider, account_identity, region, provider_reference, created_at, updated_at, events]
       properties:
         id: {type: string, format: uuid}
         connection_id: {type: string, format: uuid}
@@ -870,6 +939,7 @@ components:
         action: {type: string}
         state: {$ref: '#/components/schemas/OperationState'}
         uncertain: {type: boolean, description: True for the unresolved unknown state.}
+        reservation_released: {type: boolean, description: Owner acknowledged residual risk; this does not establish provider success.}
         target_name: {type: string, maxLength: 200}
         native_id: {type: string, maxLength: 512}
         provider: {type: string}
@@ -924,6 +994,13 @@ components:
         account_identity: {type: string, maxLength: 512}
         verified_at: {type: string, format: date-time}
         capabilities: {$ref: '#/components/schemas/Capabilities'}
+    ReservationRelease:
+      type: object
+      additionalProperties: false
+      required: [residual_risk_acknowledged, typed_target]
+      properties:
+        residual_risk_acknowledged: {type: boolean, enum: [true]}
+        typed_target: {type: string, minLength: 1, maxLength: 200}
     AcceptedOperation:
       type: object
       additionalProperties: false

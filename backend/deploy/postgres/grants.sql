@@ -24,3 +24,9 @@ GRANT SELECT, INSERT ON TABLE public.audit_events TO :"runtime_role";
 
 -- Operation history is append-only for the runtime, including after upgrades.
 REVOKE UPDATE, DELETE ON TABLE public.operation_events FROM :"runtime_role";
+
+-- Installation recovery gate is never writable by the application identity.
+REVOKE ALL ON TABLE public.dispatch_recovery_gate FROM PUBLIC, :"runtime_role";
+GRANT SELECT ON TABLE public.dispatch_recovery_gate TO :"runtime_role";
+
+REVOKE UPDATE, DELETE ON TABLE public.operation_resolutions FROM :"runtime_role";

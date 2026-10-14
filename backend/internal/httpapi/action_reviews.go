@@ -14,6 +14,8 @@ import (
 func (a *Auth) operationFailure(w http.ResponseWriter, r *http.Request, err error) {
 	status, code := 503, "provider_unavailable"
 	switch {
+	case errors.Is(err, operation.ErrState):
+		status, code = 409, "operation_state_conflict"
 	case errors.Is(err, operation.ErrInvalid):
 		status, code = 422, "invalid_request"
 	case errors.Is(err, operation.ErrUnsupported):

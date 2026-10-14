@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"sama/backend/internal/identity"
 	"sama/backend/internal/platform"
+	"sama/backend/internal/platform/outbound"
 	"sama/backend/internal/provider"
 	"sama/backend/internal/workspace"
 )
@@ -24,6 +25,8 @@ var ErrProvider = errors.New("provider review unavailable")
 type ReviewFactory func(context.Context, provider.Binding) (provider.PowerReviewer, error)
 
 type Service struct {
+	budget    *outbound.Budget
+	policy    *Policy
 	pool      *pgxpool.Pool
 	sessions  *identity.Sessions
 	enabled   bool
@@ -40,7 +43,7 @@ func NewService(pool *pgxpool.Pool, sessions *identity.Sessions, enabled bool, f
 	if len(clocks) > 0 && clocks[0] != nil {
 		now = clocks[0]
 	}
-	return &Service{pool, sessions, enabled, copied, now}
+	return &Service{pool: pool, sessions: sessions, enabled: enabled, factories: copied, now: now, budget: outbound.NewBudget()}
 }
 
 type Review struct {
@@ -57,6 +60,7 @@ type authority struct {
 	provider, scope, native, name, role string
 	grants, verified                    []string
 	policy                              int64
+	account                             string
 }
 
 func (s *Service) authority(ctx context.Context, tx pgx.Tx, actor, scope, target uuid.UUID) (authority, error) {
@@ -69,7 +73,7 @@ func (s *Service) authority(ctx context.Context, tx pgx.Tx, actor, scope, target
 	var family string
 	var version int64
 	err := tx.QueryRow(ctx, `SELECT c.id,c.provider,c.api_family,c.active_credential_version,r.scope,r.native_id,r.name,m.role,g.actions,
- CASE WHEN c.permissions_verified_at IS NULL THEN '{}'::text[] ELSE c.verified_capabilities END,w.policy_version
+ CASE WHEN c.permissions_verified_at IS NULL THEN '{}'::text[] ELSE c.verified_capabilities END,w.policy_version,c.account_identity
  FROM resources r JOIN connections c ON (c.workspace_id,c.id)=(r.workspace_id,r.connection_id)
  JOIN workspaces w ON w.id=r.workspace_id JOIN memberships m ON m.workspace_id=w.id AND m.user_id=$2
  JOIN users u ON u.id=m.user_id AND u.disabled_at IS NULL
@@ -77,7 +81,7 @@ func (s *Service) authority(ctx context.Context, tx pgx.Tx, actor, scope, target
  JOIN credential_versions v ON (v.workspace_id,v.connection_id,v.version)=(w.id,c.id,c.active_credential_version)
  JOIN sync_runs published ON (published.workspace_id,published.connection_id,published.scope,published.generation)=(r.workspace_id,r.connection_id,r.scope,r.generation)
  WHERE r.workspace_id=$1 AND r.id=$3 AND r.tombstoned_at IS NULL AND published.status='succeeded'
- AND 'read'=ANY(g.actions) AND c.status='active' AND v.revoked_at IS NULL FOR UPDATE OF c`, scope, actor, target).Scan(&conn, &a.provider, &family, &version, &a.scope, &a.native, &a.name, &a.role, &a.grants, &a.verified, &a.policy)
+ AND 'read'=ANY(g.actions) AND c.status='active' AND v.revoked_at IS NULL FOR UPDATE OF c`, scope, actor, target).Scan(&conn, &a.provider, &family, &version, &a.scope, &a.native, &a.name, &a.role, &a.grants, &a.verified, &a.policy, &a.account)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return authority{}, workspace.ErrNotFound
 	}
@@ -85,6 +89,7 @@ func (s *Service) authority(ctx context.Context, tx pgx.Tx, actor, scope, target
 		return authority{}, ErrStore
 	}
 	a.binding, err = provider.NewBinding(scope, conn, family, version)
+	a.policy = s.policyVersion(a.policy)
 	if err != nil {
 		return authority{}, ErrStore
 	}
@@ -104,7 +109,7 @@ func (s *Service) inspect(ctx context.Context, a authority, i Intent) (provider.
 		return provider.Preconditions{}, ErrUnsupported
 	}
 	factory := s.factories[a.provider+"/"+a.binding.Family()]
-	if factory == nil {
+	if factory == nil || s.policy != nil && !s.policy.permits(a.provider+"/"+a.binding.Family(), i.Action) {
 		return provider.Preconditions{}, ErrUnsupported
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -113,7 +118,12 @@ func (s *Service) inspect(ctx context.Context, a authority, i Intent) (provider.
 	if err != nil || reader == nil {
 		return provider.Preconditions{}, ErrProvider
 	}
-	p, err := reader.Inspect(ctx, a.binding, i.Action, a.native)
+	var p provider.Preconditions
+	err = s.budget.Call(ctx, a.binding.Connection(), quotaKey(a.provider, a.binding.Family(), a.account), func(call context.Context) error {
+		var e error
+		p, e = reader.Inspect(call, a.binding, i.Action, a.native)
+		return e
+	})
 	if err != nil {
 		return provider.Preconditions{}, ErrProvider
 	}
