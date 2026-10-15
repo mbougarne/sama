@@ -164,3 +164,25 @@ describe('browser API transport', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+it('validates idempotency headers before sending and preserves the exact key', async () => {
+  await expect(
+    apiRequest('/api/v1/operations', {
+      method: 'POST',
+      idempotencyKey: 'bad\r\nheader',
+    }),
+  ).rejects.toThrow('Invalid idempotency key.');
+  await expect(
+    apiRequest('/api/v1/operations', { idempotencyKey: 'valid-key' }),
+  ).rejects.toThrow('Invalid idempotency key.');
+  expect(fetchMock).not.toHaveBeenCalled();
+  fetchMock.mockResolvedValue(response(204));
+  await apiRequest('/api/v1/operations', {
+    method: 'POST',
+    idempotencyKey: 'same-key:1',
+  });
+  expect(fetchMock.mock.calls[0]![1]!.headers).toHaveProperty(
+    'Idempotency-Key',
+    'same-key:1',
+  );
+});

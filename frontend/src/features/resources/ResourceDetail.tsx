@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { apiRequest } from '../../api/client';
 import { scopedKey } from '../../app/QueryScope';
 import { useAccessLoss } from '../../app/useAccessLoss';
+import { ActionSubmission } from '../operations/ActionSubmission';
 import { Refresh } from './Refresh';
 import { ProblemSummary } from '../../components/Form';
 import {
@@ -60,10 +61,7 @@ export function ResourceDetail({ scope, id }: { scope: Scope; id: string }) {
       <h3>Action availability</h3>
       <Refresh scope={scope} connectionId={resource.connection_id} />
       <Capabilities values={resource.available_actions} />
-      <p>
-        Action availability is advisory; reviewed operation controls require
-        their own implementation and current server authorization.
-      </p>
+      <ActionSubmission key={resource.id} scope={scope} resource={resource} />
       <Link
         to={`/workspaces/${scope.workspace.id}/resources?${params.toString()}`}
       >

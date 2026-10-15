@@ -10,7 +10,7 @@ type Props = {
   pending: boolean;
   error?: unknown;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (typedTarget: string) => void;
 };
 export function RiskDialog(props: Props) {
   // A changed review target discards its typed confirmation.
@@ -88,7 +88,7 @@ function Review({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (valid && !pending) onConfirm();
+          if (valid && !pending) onConfirm(typed);
         }}
       >
         {typedTarget && (

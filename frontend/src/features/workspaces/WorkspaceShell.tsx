@@ -4,6 +4,7 @@ import { ApiError, getWorkspaces, type User } from '../../api/client';
 import { QueryScope } from '../../app/QueryScope';
 
 import { lazy, Suspense } from 'react';
+const OperationsPage = lazy(() => import('../operations/OperationsPage'));
 const OverviewPage = lazy(() => import('../overview/OverviewPage'));
 const ActivityPage = lazy(() => import('../activity/ActivityPage'));
 const ResourcesPage = lazy(() => import('../resources/ResourcesPage'));
@@ -89,9 +90,11 @@ export function WorkspaceShell({ user }: { user: User }) {
           ? ResourcesPage
           : section === 'connections'
             ? ConnectionsPage
-            : section === 'activity'
-              ? ActivityPage
-              : null;
+            : section === 'operations'
+              ? OperationsPage
+              : section === 'activity'
+                ? ActivityPage
+                : null;
   return (
     <QueryScope userId={user.id} workspaceId={selected.id}>
       <div className="backoffice">

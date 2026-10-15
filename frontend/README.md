@@ -99,3 +99,16 @@ Activity uses backend timestamps, scoped links, URL filters, bounded pages and a
 Overview reads bounded local aggregates, distinguishes loading/failure from zero,
 and keeps stale connection health and unknown operation outcomes visible. Opening
 it schedules no refresh or provider action.
+
+Resource power controls prepare expiring server-held reviews with account/target,
+impact and unknown-price disclosure. Typed confirmation follows the server's
+high-impact classification. Recent-authentication failures stop the flow and
+require signing in with fresh authentication before reviewing again. Mutation
+registration in production remains closed pending action-specific qualification.
+An interrupted confirmation retains its review and idempotency key only in the
+current view's memory; explicit recovery reuses both. Leaving the view, changing
+workspace or signing out clears that state; inspect Operations before starting
+another intent. Operations list/detail reads stored progress, polls visible active
+work every three seconds and stops at terminal or unknown states. Controls expose
+queued cancellation, unknown observation rechecks and owner/high-impact reviewed
+reservation release; release preserves uncertainty and never resubmits an action.
