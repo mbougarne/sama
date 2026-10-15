@@ -10,6 +10,7 @@ export type FieldError = {
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type RequestOptions = {
   method?: Method;
+  idempotencyKey?: string;
   body?: unknown;
   signal?: AbortSignal | undefined;
   timeoutMs?: number;
@@ -156,6 +157,12 @@ export async function apiRequest<T>(
   )
     throw new Error('Invalid API path.');
   const method = options.method ?? 'GET';
+  if (
+    options.idempotencyKey !== undefined &&
+    (method !== 'POST' ||
+      !/^[A-Za-z0-9._:-]{1,128}$/.test(options.idempotencyKey))
+  )
+    throw new Error('Invalid idempotency key.');
   const timeout = options.timeoutMs ?? 10_000;
   if (!Number.isFinite(timeout) || timeout < 1 || timeout > 30_000)
     throw new Error('Invalid request deadline.');
@@ -176,6 +183,8 @@ export async function apiRequest<T>(
   if (method !== 'GET') {
     headers['Content-Type'] = 'application/json';
     headers['X-CSRF-Token'] = csrfToken();
+    if (options.idempotencyKey)
+      headers['Idempotency-Key'] = options.idempotencyKey;
   }
   try {
     for (let attempt = 0; ; attempt++) {

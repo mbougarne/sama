@@ -43,9 +43,11 @@ export function show(children: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const view = render(
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>,
-  );
+  const view = render(children, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  });
   return { ...view, client };
 }
 
