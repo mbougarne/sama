@@ -545,3 +545,6 @@ local PostgreSQL volume and `.state` files; no automatic reset/prune is provided
 Rerunning `up` preserves the owner and data. Keep local files ignored. A changed
 checkout path deliberately names a different installation. Focused helper checks:
 `python3 -B -m unittest discover -s backend/dev -p 'test_*.py'`.
+CI also builds the backend and runs `SAMA_DEV_PUBLIC_ORIGIN=http://127.0.0.1:8080
+python3 -B backend/dev/smoke.py` after `up` with the same origin. This headless
+acceptance checks real login/session/logout, restricted grants and repeated setup.
