@@ -17,3 +17,7 @@
 **/.pnpm-store/
 
 ticket
+
+# Opt-in local development configuration and synthetic installation state.
+/backend/dev/.env
+/backend/dev/.state/

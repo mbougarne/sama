@@ -474,3 +474,79 @@ work may still finish. Database restore never reverses provider effects.
 Fault tests use only a loopback fake provider, task-owned child workers and
 PostgreSQL fixtures; no real mutation adapter is enabled by those tests. Live
 provider/crash/rotation/permission acceptance is still required for each adapter.
+
+## Local authenticated development (synthetic data only)
+
+From the repository root, use Python 3.10+, the pinned Go toolchain and a running
+**local** Docker daemon. Compose is not required. This opt-in helper runs pinned
+PostgreSQL 18 Alpine and [Dex 2.46.0](https://github.com/dexidp/dex/releases/tag/v2.46.0)
+containers, applies the real migrations/grants and bootstraps a real local owner.
+Production Go authentication and session storage are unchanged.
+
+```sh
+cp backend/dev/.env.example backend/dev/.env   # optional; edit ports/context
+python3 backend/dev/local.py up
+python3 backend/dev/local.py backend           # leave running in terminal A
+```
+
+In terminal B, `cd frontend`, use Node/pnpm from the frontend README, then run
+`pnpm install --frozen-lockfile --ignore-scripts` if needed and `pnpm dev`.
+Open **http://127.0.0.1:3000** and choose Sign in. Dex's upstream development
+connector represents a fixed fictional user (Kilgore Trout); no real account,
+password, provider token or paid service is needed. This is a real signed OIDC
+code/PKCE flow followed by PostgreSQL-backed Sama sessions, not a mocked `/me`.
+Dex's synthetic connector provides no real identity assurance: never use this
+installation for real accounts or data. Its encoded subject is bound to the
+pinned Dex release's [mock identity](https://github.com/dexidp/dex/blob/v2.46.0/connector/mock/connectortest.go)
+and [subject schema](https://github.com/dexidp/dex/blob/v2.46.0/server/internal/types.proto).
+
+The default ports are Go **8080**, Webpack **3000**, PostgreSQL **18543** and Dex
+**18556**. All host bindings use `127.0.0.1`. Keep hostnames consistent; do not
+replace them with `localhost`. Stop the stack before editing ports/context in the
+ignored `backend/dev/.env`; environment variables of the same names override it.
+Keep the Dex issuer port stable when reusing a database: its exact issuer URL is
+part of the owner's identity, and the helper never rebinds existing owners.
+The helper uses your current Docker context unless explicitly configured and
+rejects remote TCP/SSH contexts; it never changes the selected context or starts
+Docker/Colima for you. Resolve port conflicts without stopping another task.
+
+Each checkout owns separate labeled container/volume names derived from its
+absolute path. PostgreSQL uses trust authentication only on this private test
+stack, with distinct migration/runtime roles and the normal audit restrictions.
+Do not connect production databases. The ignored `.state` directory holds a
+public test-only encryption key; never store real provider credentials here.
+The helper strips inherited `SAMA_*` settings, disables workers/mutations and
+provider calls, and caps PostgreSQL/Dex at 256/128 MiB and 0.5 CPU each. A Docker
+VM needs its own memory budget; do not start a large VM under memory pressure.
+
+```sh
+curl --max-time 3 -i http://127.0.0.1:8080/health
+curl --max-time 3 -i http://127.0.0.1:8080/readyz
+curl --max-time 3 -i http://127.0.0.1:3000/api/v1/me
+```
+
+Expect health/readiness 200 after setup; `/me` is 401 before signing in and 200
+with the signed-in browser's session. Curl without that cookie remains 401.
+Webpack proxies `/api`, `/auth`, `/health`; query `/readyz` directly on 8080.
+For a backend-only session check, set
+`SAMA_DEV_PUBLIC_ORIGIN=http://127.0.0.1:8080` consistently for `up` and `backend`;
+the local Dex client explicitly allows both callback ports. For an isolated
+backend-only check, set `SAMA_DEV_BACKEND_PORT=18580` and
+`SAMA_DEV_PUBLIC_ORIGIN=http://127.0.0.1:18580` for both commands. Webpack's normal
+proxy still expects backend port 8080.
+
+Stop terminal A and B with Ctrl-C, then run:
+
+```sh
+python3 backend/dev/local.py status  # inspect only this checkout
+python3 backend/dev/local.py down
+```
+
+This removes only the checkout's labeled containers/network. It preserves the
+local PostgreSQL volume and `.state` files; no automatic reset/prune is provided.
+Rerunning `up` preserves the owner and data. Keep local files ignored. A changed
+checkout path deliberately names a different installation. Focused helper checks:
+`python3 -B -m unittest discover -s backend/dev -p 'test_*.py'`.
+CI also builds the backend and runs `SAMA_DEV_PUBLIC_ORIGIN=http://127.0.0.1:8080
+python3 -B backend/dev/smoke.py` after `up` with the same origin. This headless
+acceptance checks real login/session/logout, restricted grants and repeated setup.

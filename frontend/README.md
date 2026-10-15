@@ -112,3 +112,7 @@ another intent. Operations list/detail reads stored progress, polls visible acti
 work every three seconds and stops at terminal or unknown states. Controls expose
 queued cancellation, unknown observation rechecks and owner/high-impact reviewed
 reservation release; release preserves uncertainty and never resubmits an action.
+
+For a working signed-in local installation, first run the opt-in
+[synthetic PostgreSQL/Dex setup](../backend/README.md#local-authenticated-development-synthetic-data-only).
+`pnpm dev` starts only Webpack; it does not start the Go backend or authentication.

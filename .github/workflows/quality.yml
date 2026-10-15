@@ -28,6 +28,15 @@ jobs:
           go-version-file: backend/go.mod
           cache: false
       - run: sh scripts/check.sh
+      - name: Real local authentication acceptance
+        env:
+          SAMA_DEV_PUBLIC_ORIGIN: http://127.0.0.1:8080
+        run: |
+          python3 dev/local.py up
+          python3 -B dev/smoke.py
+      - name: Stop checkout-owned local services
+        if: always()
+        run: python3 dev/local.py down
 
   frontend:
     name: Backoffice checks
@@ -64,4 +73,5 @@ jobs:
         with:
           python-version: '3.13'
       - run: python3 -B -m unittest discover -s scripts/tests -v
+      - run: python3 -B -m unittest discover -s backend/dev -p 'test_*.py' -v
       - run: python3 scripts/collab.py lint .
