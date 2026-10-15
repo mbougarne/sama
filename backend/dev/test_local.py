@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location('sama_local', Path(__file__).with_name('local.py'))
 local = importlib.util.module_from_spec(spec)
@@ -85,6 +85,20 @@ class LocalSetupTests(unittest.TestCase):
             ('stop', local.PREFIX + '-postgres'), ('rm', local.PREFIX + '-postgres'),
             ('network', 'rm', local.PREFIX),
         ])
+
+    def test_keyring_created_private_and_never_overwritten(self):
+        installation = object.__new__(local.Local)
+        installation.config = local.DEFAULTS
+        installation.owned = Mock(side_effect=RuntimeError('fixture-stop'))
+        with tempfile.TemporaryDirectory() as directory, patch.object(local, 'STATE', Path(directory) / '.state'):
+            with self.assertRaisesRegex(RuntimeError, 'fixture-stop'):
+                installation.up()
+            keyring = local.STATE / 'keyring.json'
+            self.assertEqual(keyring.stat().st_mode & 0o777, 0o600)
+            keyring.write_text('preserve existing local key material')
+            with self.assertRaisesRegex(RuntimeError, 'fixture-stop'):
+                installation.up()
+            self.assertEqual(keyring.read_text(), 'preserve existing local key material')
 
 
 if __name__ == '__main__':

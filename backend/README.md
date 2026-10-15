@@ -504,6 +504,8 @@ The default ports are Go **8080**, Webpack **3000**, PostgreSQL **18543** and De
 **18556**. All host bindings use `127.0.0.1`. Keep hostnames consistent; do not
 replace them with `localhost`. Stop the stack before editing ports/context in the
 ignored `backend/dev/.env`; environment variables of the same names override it.
+Keep the Dex issuer port stable when reusing a database: its exact issuer URL is
+part of the owner's identity, and the helper never rebinds existing owners.
 The helper uses your current Docker context unless explicitly configured and
 rejects remote TCP/SSH contexts; it never changes the selected context or starts
 Docker/Colima for you. Resolve port conflicts without stopping another task.

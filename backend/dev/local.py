@@ -121,11 +121,12 @@ class Local:
                 raise ValueError('Local state files must be regular, single-link files')
         config_text = json.dumps(config)
         config_path.write_text(config_text)
+        config_path.chmod(0o644)  # Public config must be readable by Dex's unprivileged UID.
         config_label = LABEL + '.config'
         config_hash = hashlib.sha256(config_text.encode()).hexdigest()
         if not keyring.exists():
             # Public test-only material, never a production encryption key.
-            with keyring.open('x', opener=lambda path, flags: os.open(path, flags, 0o600)) as handle:
+            with open(keyring, 'x', opener=lambda path, flags: os.open(path, flags, 0o600)) as handle:
                 json.dump({'active': 'local-only', 'keys': [{'id': 'local-only', 'key': base64.b64encode(bytes(32)).decode()}]}, handle)
         volume = PREFIX + '-data'
         if not self.owned('volume', volume):
