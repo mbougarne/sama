@@ -550,3 +550,38 @@ checkout path deliberately names a different installation. Focused helper checks
 CI also builds the backend and runs `SAMA_DEV_PUBLIC_ORIGIN=http://127.0.0.1:8080
 python3 -B backend/dev/smoke.py` after `up` with the same origin. This headless
 acceptance checks real login/session/logout, restricted grants and repeated setup.
+
+## Provider power contract cases
+
+Power contract adapters use the shared review, submit and observe ports. They
+are excluded from production registries until inventory identity and each action
+are independently qualified. Configuration switches cannot qualify them.
+Graceful shutdown never falls back to forced power off. Vultr graceful shutdown
+is unsupported. Vultr and Contabo reboot results remain unknown without native
+completion evidence; a running server or a request correlation ID is insufficient.
+Power on can increase running-resource charges; shutdown and reboot interrupt
+service; forced power off can lose data. Stopping does not promise lower charges.
+
+The `TestLivePowerActions` cases are opt-in and require a private regular JSON
+file, with no group/other access, containing `workspace_id`, `connection_id`,
+`family`, `credential_version`, the existing typed `credential`, and `case`.
+The case specifies `action`, `native_id`, `disposable: true`, an explicit
+`spend_ceiling`, `disruption_seconds` (1–300), and `restore_action`. Power on
+requires separately authorized shutdown or power off for restoration; shutdown
+and power off require power on; reboot requires an empty restoration action.
+These limits bound the probe and record operator intent; they cannot enforce a
+provider's charges. The probe creates or deletes no resources, never retries a
+mutation, and restores only after definite completion. Ambiguity requires
+operator reconciliation. Existing read identity qualification must pass first.
+
+After separately authorizing a disposable target and both required actions:
+
+```sh
+SAMA_POWER_PROBE_AUTHORIZATION=hetzner.cloud:compute.server.power_on \
+SAMA_POWER_PROBE_INPUT_FILE=/private/power-case.json \
+go test ./internal/provider/hetzner -run TestLivePowerActions -count=1 -v
+```
+
+Use the corresponding package and exact family/action for other cases. Normal
+tests skip live cases. Aggregate booleans describe completion and restoration;
+no input, credentials, account identity or native provider body is printed.
