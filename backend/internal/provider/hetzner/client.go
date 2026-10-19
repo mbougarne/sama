@@ -33,6 +33,7 @@ func New(b provider.Binding, c connection.Credential, budget *outbound.Budget) (
 }
 
 type server struct {
+	Locked   *bool       `json:"locked"`
 	ID       json.Number `json:"id"`
 	Name     string      `json:"name"`
 	Status   string      `json:"status"`
