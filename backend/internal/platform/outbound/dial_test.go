@@ -64,7 +64,7 @@ func TestTLSVerificationAndCancellation(t *testing.T) {
 	defer server.Close()
 	roots := x509.NewCertPool()
 	roots.AddCert(server.Certificate())
-	profile := Profile{"example.com", "/v1"}
+	profile := Profile{host: "example.com", prefix: "/v1"}
 	client := profile.Client()
 	transport := client.Transport.(confinedTransport).transport.(*http.Transport)
 	defer transport.CloseIdleConnections()
