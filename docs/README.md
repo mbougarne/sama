@@ -8,6 +8,7 @@ This index describes the product and its stable design. Development commands and
 | [Product](product.md) | Audience, product principles, release scope, user journeys |
 | [Architecture overview](architecture/README.md) | System boundaries, deployment topology, stack and tradeoffs |
 | [Provider research](providers.md) | Source-backed API findings, capability differences, delivery order |
+| [netcup SCP REST](netcup-scp.md) | Existing-server schema coverage and authentication qualification gates |
 | [Data model](architecture/data.md) | Entities, tenancy, constraints, retention, transaction boundaries |
 | [API and adapters](architecture/api.md) | HTTP contract, capability model, provider interfaces, errors |
 | [Security](architecture/security.md) | Identity, authorization, encryption, threat model, safe changes |
