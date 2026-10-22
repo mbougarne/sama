@@ -17,6 +17,7 @@ var ErrEndpoint = errors.New("provider endpoint rejected")
 type Profile struct {
 	host   string
 	prefix string
+	exact  bool
 }
 
 var HetznerCloud = Profile{host: "api.hetzner.cloud", prefix: "/v1"}
@@ -29,11 +30,16 @@ var Contabo = Profile{host: "api.contabo.com", prefix: "/v1"}
 
 var ContaboAuth = Profile{host: "auth.contabo.com", prefix: "/auth/realms/contabo/protocol/openid-connect/token"}
 
+var NetcupLegacyDNS = Profile{host: "ccp.netcup.net", prefix: "/run/webservice/servers/endpoint.php", exact: true}
+
 func (p Profile) validate(u *url.URL) error {
 	if u == nil || p.host == "" || p.prefix == "" || u.Scheme != "https" || u.Opaque != "" || u.User != nil || u.Fragment != "" || u.Hostname() != p.host || u.Port() != "" && u.Port() != "443" {
 		return ErrEndpoint
 	}
 	if u.RawPath != "" || strings.ContainsAny(u.Path, "\\\x00") || path.Clean(u.Path) != u.Path || u.Path != p.prefix && !strings.HasPrefix(u.Path, p.prefix+"/") {
+		return ErrEndpoint
+	}
+	if p.exact && (u.Path != p.prefix || u.RawQuery != "JSON" || u.ForceQuery) {
 		return ErrEndpoint
 	}
 	return nil

@@ -827,7 +827,8 @@ export interface components {
     };
     WriteCredential:
       | components['schemas']['BearerCredential']
-      | components['schemas']['ContaboCredential'];
+      | components['schemas']['ContaboCredential']
+      | components['schemas']['NetcupLegacyCredential'];
     BearerCredential: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -846,6 +847,16 @@ export interface components {
       client_secret: string;
       username: string;
       password: string;
+    };
+    NetcupLegacyCredential: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: 'netcup_legacy_v1';
+      customer_number: string;
+      api_key: string;
+      api_password: string;
     };
     Capabilities: components['schemas']['Capability'][];
     ConnectionView: {
