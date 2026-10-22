@@ -15,7 +15,7 @@ All contributions are under MIT. Contributors retain ownership of their work and
 ## Development setup
 
 - Go toolchain pinned in `backend/go.mod`.
-- Node 24.20.0 LTS, pinned in `frontend/.nvmrc` and enforced by its package manifest.
+- Node 24.22.1 LTS, pinned in `frontend/.nvmrc` and enforced by its package manifest.
 - pnpm version declared by `frontend/package.json` (`packageManager`); use the same version locally and in CI.
 - Python 3.10+ and Git for collaboration and hook helpers; CI uses Python 3.13.
 - macOS/Linux are the supported local check environments. Race-enabled Go checks require a C compiler.

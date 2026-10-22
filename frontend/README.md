@@ -4,7 +4,7 @@ This is the administrative interface for people managing their cloud services. I
 
 The interface checks the current session before showing the overview and shared layout, using React Router and TanStack Query. It contains no fake resource totals or cloud actions. Transport reads have at most one transient retry; query-library and mutation retries remain disabled.
 
-Use Node **24.20.0**, pinned in `.nvmrc` and `package.json`. Use pnpm **10.6.5**, declared in `package.json`; `.npmrc` is also pnpm configuration. From this directory:
+Use Node **24.22.1**, pinned in `.nvmrc` and `package.json`. Use pnpm **10.6.5**, declared in `package.json`; `.npmrc` is also pnpm configuration. From this directory:
 
 ```sh
 nvm install
