@@ -11,7 +11,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestEndpointConfinementAndRedirects(t *testing.T) {
-	profile := Profile{"provider.example", "/v1"}
+	profile := Profile{host: "provider.example", prefix: "/v1"}
 	for _, raw := range []string{"http://provider.example/v1", "https://user:sentinel@provider.example/v1", "https://provider.example:444/v1", "https://evil.example/v1", "https://provider.example/v10", "https://provider.example/v1/../billing", "https://provider.example/v1/%2e%2e/billing", "https://provider.example/v1//servers", "https://provider.example/v1#fragment", "https://provider.example/v1/%2fservers"} {
 		if _, err := profile.URL(raw); err != ErrEndpoint {
 			t.Fatalf("allowed %s", raw)

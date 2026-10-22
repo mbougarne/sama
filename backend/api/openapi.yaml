@@ -1107,11 +1107,13 @@ components:
       oneOf:
         - {$ref: '#/components/schemas/BearerCredential'}
         - {$ref: '#/components/schemas/ContaboCredential'}
+        - {$ref: '#/components/schemas/NetcupLegacyCredential'}
       discriminator:
         propertyName: type
         mapping:
           bearer_v1: '#/components/schemas/BearerCredential'
           contabo_v1: '#/components/schemas/ContaboCredential'
+          netcup_legacy_v1: '#/components/schemas/NetcupLegacyCredential'
     BearerCredential:
       type: object
       additionalProperties: false
@@ -1129,6 +1131,15 @@ components:
         client_secret: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
         username: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
         password: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+    NetcupLegacyCredential:
+      type: object
+      additionalProperties: false
+      required: [type, customer_number, api_key, api_password]
+      properties:
+        type: {type: string, const: netcup_legacy_v1}
+        customer_number: {type: string, pattern: '^[1-9][0-9]{0,19}$', writeOnly: true}
+        api_key: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
+        api_password: {type: string, minLength: 1, maxLength: 4096, writeOnly: true}
     Capabilities:
       type: array
       items: {$ref: '#/components/schemas/Capability'}
