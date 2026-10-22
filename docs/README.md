@@ -10,6 +10,7 @@ This index describes the product and its stable design. Development commands and
 | [Provider research](providers.md) | Source-backed API findings, capability differences, delivery order |
 | [netcup SCP REST](netcup-scp.md) | Existing-server schema coverage and authentication qualification gates |
 | [netcup Legacy DNS](netcup-legacy-dns.md) | Separate session credentials, bounded zone reads and conflict boundary |
+| [netcup CloudDNS](netcup-clouddns.md) | Separate API identity, revision reads and mutation/UI qualification gates |
 | [Data model](architecture/data.md) | Entities, tenancy, constraints, retention, transaction boundaries |
 | [API and adapters](architecture/api.md) | HTTP contract, capability model, provider interfaces, errors |
 | [Security](architecture/security.md) | Identity, authorization, encryption, threat model, safe changes |
