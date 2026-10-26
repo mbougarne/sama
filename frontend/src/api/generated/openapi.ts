@@ -185,7 +185,9 @@ export interface paths {
         cursor?: string;
         connection_id?: string;
         provider?: string;
-        type?: 'compute.server';
+        type?: 'compute.server' | 'storage.snapshot';
+        source_native_id?: string;
+        source_type?: 'compute.server' | 'storage.volume';
         region?: string;
         account?: string;
       };
@@ -722,6 +724,35 @@ export interface components {
         | 'failed'
         | 'cancelled';
     };
+    ResourceIntent:
+      | components['schemas']['PowerIntent']
+      | components['schemas']['SnapshotIntent'];
+    SnapshotIntent: {
+      /** @enum {string} */
+      action: 'compute.server.snapshot_create' | 'storage.snapshot.delete';
+      parameters: Record<string, never>;
+    };
+    RefreshIntent: {
+      /**
+       * @default compute.server
+       * @enum {string}
+       */
+      resource_type: 'compute.server' | 'storage.snapshot';
+    };
+    SnapshotMetadata: {
+      source_native_id?: string;
+      /** @enum {string} */
+      source_type?: 'compute.server' | 'storage.volume';
+      status_reason?: string;
+      /** Format: date-time */
+      created_at: string | null;
+      native_created_at?: string;
+      creation_time_reason?: string;
+      size_bytes: number | null;
+      size_gb: number | null;
+      minimum_disk_gb: number | null;
+      regions: string[];
+    };
     PowerIntent: {
       /** @enum {string} */
       action:
@@ -751,13 +782,20 @@ export interface components {
       api_family: string;
       account_identity: string;
       /** @enum {string} */
-      type: 'compute.server';
+      type: 'compute.server' | 'storage.snapshot';
       scope: string;
       native_id: string;
       name: string;
       region: string;
       /** @enum {string} */
-      status: 'unknown' | 'running' | 'stopped' | 'pending' | 'failed';
+      status:
+        | 'unknown'
+        | 'running'
+        | 'stopped'
+        | 'pending'
+        | 'failed'
+        | 'available'
+        | 'deleted';
       native_status: string;
       /** Format: date-time */
       observed_at: string;
@@ -772,13 +810,20 @@ export interface components {
       api_family: string;
       account_identity: string;
       /** @enum {string} */
-      type: 'compute.server';
+      type: 'compute.server' | 'storage.snapshot';
       scope: string;
       native_id: string;
       name: string;
       region: string;
       /** @enum {string} */
-      status: 'unknown' | 'running' | 'stopped' | 'pending' | 'failed';
+      status:
+        | 'unknown'
+        | 'running'
+        | 'stopped'
+        | 'pending'
+        | 'failed'
+        | 'available'
+        | 'deleted';
       native_status: string;
       /** Format: date-time */
       observed_at: string;
@@ -788,6 +833,7 @@ export interface components {
       details: {
         region?: string;
         machine_type?: string;
+        snapshot?: components['schemas']['SnapshotMetadata'];
       };
       available_actions: components['schemas']['Capabilities'];
     };
@@ -1286,7 +1332,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['PowerIntent'];
+        'application/json': components['schemas']['ResourceIntent'];
       };
     };
     responses: {
@@ -1333,7 +1379,9 @@ export interface operations {
         cursor?: string;
         connection_id?: string;
         provider?: string;
-        type?: 'compute.server';
+        type?: 'compute.server' | 'storage.snapshot';
+        source_native_id?: string;
+        source_type?: 'compute.server' | 'storage.volume';
         region?: string;
         account?: string;
       };
@@ -1507,7 +1555,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': Record<string, never>;
+        'application/json': components['schemas']['RefreshIntent'];
       };
     };
     responses: {

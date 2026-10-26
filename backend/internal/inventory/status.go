@@ -46,8 +46,8 @@ func Status(ctx context.Context, pool *pgxpool.Pool, actor, scope, id uuid.UUID)
 	var last *time.Time
 	var failure *string
 	err := pool.QueryRow(ctx, `SELECT s.id,s.connection_id,s.status,s.page_count,s.started_at,s.completed_at,s.failure_code,
- (SELECT max(completed_at) FROM sync_runs WHERE workspace_id=s.workspace_id AND connection_id=s.connection_id AND scope=s.scope AND status='succeeded'),
- (SELECT failure_code FROM sync_runs WHERE workspace_id=s.workspace_id AND connection_id=s.connection_id AND scope=s.scope ORDER BY generation_number DESC LIMIT 1)
+ (SELECT max(completed_at) FROM sync_runs WHERE workspace_id=s.workspace_id AND connection_id=s.connection_id AND scope=s.scope AND resource_type=s.resource_type AND status='succeeded'),
+ (SELECT failure_code FROM sync_runs WHERE workspace_id=s.workspace_id AND connection_id=s.connection_id AND scope=s.scope AND resource_type=s.resource_type ORDER BY generation_number DESC LIMIT 1)
  FROM sync_runs s JOIN workspaces w ON w.id=s.workspace_id AND w.closed_at IS NULL
  JOIN memberships m ON m.workspace_id=w.id AND m.user_id=$2 JOIN users u ON u.id=m.user_id AND u.disabled_at IS NULL
  JOIN connection_grants g ON (g.workspace_id,g.connection_id,g.user_id)=(s.workspace_id,s.connection_id,m.user_id)

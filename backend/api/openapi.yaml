@@ -187,7 +187,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/PowerIntent'}
+            schema: {$ref: '#/components/schemas/ResourceIntent'}
       responses:
         '200':
           description: Expiring server-owned review bound to current authority and fresh preconditions.
@@ -218,7 +218,9 @@ paths:
       - {name: cursor, in: query, schema: {type: string, maxLength: 1024}}
       - {name: connection_id, in: query, schema: {type: string, format: uuid}}
       - {name: provider, in: query, schema: {type: string, maxLength: 64}}
-      - {name: type, in: query, schema: {type: string, enum: [compute.server]}}
+      - {name: type, in: query, schema: {type: string, enum: [compute.server, storage.snapshot]}}
+      - {name: source_native_id, in: query, schema: {type: string, maxLength: 512}}
+      - {name: source_type, in: query, schema: {type: string, enum: [compute.server, storage.volume]}}
       - {name: region, in: query, schema: {type: string, maxLength: 128}}
       - {name: account, in: query, schema: {type: string, maxLength: 512}}
     get:
@@ -333,7 +335,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {type: object, additionalProperties: false}
+            schema: {$ref: '#/components/schemas/RefreshIntent'}
       responses:
         '202':
           description: Durable coalesced refresh accepted.
@@ -945,7 +947,7 @@ components:
         provider: {type: string}
         account_identity: {type: string}
         region: {type: string}
-        provider_reference: {type: [string, 'null'], maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'}
+        provider_reference: {type: [string, 'null'], maxLength: 386, pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}(/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}){0,2}$'}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         events: {type: array, maxItems: 20, items: {$ref: '#/components/schemas/OperationEvent'}}
@@ -1008,6 +1010,37 @@ components:
       properties:
         id: {type: string, format: uuid}
         state: {type: string, enum: [queued, dispatching, waiting_provider, reconciling, unknown, succeeded, failed, cancelled]}
+    ResourceIntent:
+      oneOf:
+        - {$ref: '#/components/schemas/PowerIntent'}
+        - {$ref: '#/components/schemas/SnapshotIntent'}
+    SnapshotIntent:
+      type: object
+      additionalProperties: false
+      required: [action, parameters]
+      properties:
+        action: {type: string, enum: [compute.server.snapshot_create, storage.snapshot.delete]}
+        parameters: {type: object, additionalProperties: false}
+    RefreshIntent:
+      type: object
+      additionalProperties: false
+      properties:
+        resource_type: {type: string, enum: [compute.server, storage.snapshot], default: compute.server}
+    SnapshotMetadata:
+      type: object
+      additionalProperties: false
+      required: [created_at, size_bytes, size_gb, minimum_disk_gb, regions]
+      properties:
+        source_native_id: {type: string, maxLength: 512}
+        source_type: {type: string, enum: [compute.server, storage.volume]}
+        status_reason: {type: string, maxLength: 128}
+        created_at: {type: [string, 'null'], format: date-time}
+        native_created_at: {type: string, maxLength: 64}
+        creation_time_reason: {type: string, maxLength: 128}
+        size_bytes: {type: [integer, 'null'], minimum: 0}
+        size_gb: {type: [number, 'null'], minimum: 0}
+        minimum_disk_gb: {type: [number, 'null'], minimum: 0}
+        regions: {type: array, maxItems: 100, items: {type: string, maxLength: 128}}
     PowerIntent:
       type: object
       additionalProperties: false
@@ -1036,12 +1069,12 @@ components:
         provider: {type: string}
         api_family: {type: string}
         account_identity: {type: string}
-        type: {type: string, enum: [compute.server]}
+        type: {type: string, enum: [compute.server, storage.snapshot]}
         scope: {type: string}
         native_id: {type: string}
         name: {type: string}
         region: {type: string}
-        status: {type: string, enum: [unknown, running, stopped, pending, failed]}
+        status: {type: string, enum: [unknown, running, stopped, pending, failed, available, deleted]}
         native_status: {type: string}
         observed_at: {type: string, format: date-time}
         inventory: {$ref: '#/components/schemas/InventoryFreshness'}
@@ -1055,12 +1088,12 @@ components:
         provider: {type: string}
         api_family: {type: string}
         account_identity: {type: string}
-        type: {type: string, enum: [compute.server]}
+        type: {type: string, enum: [compute.server, storage.snapshot]}
         scope: {type: string}
         native_id: {type: string}
         name: {type: string}
         region: {type: string}
-        status: {type: string, enum: [unknown, running, stopped, pending, failed]}
+        status: {type: string, enum: [unknown, running, stopped, pending, failed, available, deleted]}
         native_status: {type: string}
         observed_at: {type: string, format: date-time}
         inventory: {$ref: '#/components/schemas/InventoryFreshness'}
@@ -1071,6 +1104,7 @@ components:
           properties:
             region: {type: string}
             machine_type: {type: string}
+            snapshot: {$ref: '#/components/schemas/SnapshotMetadata'}
         available_actions: {$ref: '#/components/schemas/Capabilities'}
     ResourcePage:
       type: object
