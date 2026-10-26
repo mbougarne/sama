@@ -6,12 +6,16 @@ import { RiskDialog } from '../../components/RiskDialog';
 import { path, type Scope, type Schema } from '../connections/api';
 
 type Review = Schema['ActionReview'];
-type Action = Schema['PowerIntent']['action'];
+type Action = Schema['ResourceIntent']['action'];
 const impacts: Record<Action, string> = {
   'compute.server.power_on': 'Start this server. Provider charges may apply.',
   'compute.server.shutdown': 'Request a graceful shutdown. Services will stop.',
   'compute.server.power_off': 'Force power off. Unsaved data may be lost.',
   'compute.server.reboot': 'Restart this server. Services will be interrupted.',
+  'compute.server.snapshot_create':
+    'Snapshot storage may incur provider charges until deletion. Quiesce applications for consistency; no hard spending estimate is available.',
+  'storage.snapshot.delete':
+    'Irreversibly delete this snapshot. The source server is not deleted. Recent authentication and typed-target confirmation are required.',
 };
 type State =
   | { stage: 'draft' | 'reviewing'; action: Action; error?: unknown }
@@ -52,9 +56,20 @@ export function ActionReview({
   resource: Schema['ResourceDetail'];
   onConfirm?: (review: Review, typedTarget: string) => void;
 }) {
+  const actions = resource.available_actions.filter(
+    (value) =>
+      value.available &&
+      Object.hasOwn(impacts, value.action) &&
+      (resource.type === 'storage.snapshot'
+        ? value.action === 'storage.snapshot.delete'
+        : value.action !== 'storage.snapshot.delete'),
+  );
   const [state, dispatch] = useReducer(reducer, {
     stage: 'draft',
-    action: 'compute.server.power_on',
+    action: (actions[0]?.action ??
+      (resource.type === 'storage.snapshot'
+        ? 'storage.snapshot.delete'
+        : 'compute.server.power_on')) as Action,
   });
   const [now, setNow] = useState(Date.now);
   const request = useRef<AbortController | null>(null);
@@ -72,9 +87,7 @@ export function ActionReview({
   useAccessLoss(recentAuth(error) ? null : error, scope.refreshAccess);
   const allowed =
     scope.workspace.role !== 'viewer' &&
-    resource.available_actions.some(
-      (value) => value.action === state.action && value.available,
-    );
+    actions.some((value) => value.action === state.action);
   async function prepare() {
     if (!allowed || request.current) return;
     const controller = new AbortController();
@@ -88,11 +101,17 @@ export function ActionReview({
           body: {
             action: state.action,
             parameters: {},
-          } satisfies Schema['PowerIntent'],
+          } satisfies Schema['ResourceIntent'],
           signal: controller.signal,
         },
       );
-      if (result.resource_id !== resource.id || result.action !== state.action)
+      if (
+        result.resource_id !== resource.id ||
+        result.action !== state.action ||
+        ((state.action === 'compute.server.snapshot_create' ||
+          state.action === 'storage.snapshot.delete') &&
+          !result.high_impact)
+      )
         throw new Error('Review does not match the requested intent.');
       if (!controller.signal.aborted)
         dispatch({ type: 'review', review: result });
@@ -108,18 +127,24 @@ export function ActionReview({
       <h3>Review resource action</h3>
       <ProblemSummary error={error} />
       <AuthenticationNotice error={error} />
-      <Field label="Power action">
+      <Field label="Resource action">
         {(attrs) => (
           <select
             {...attrs}
             value={state.action}
+            disabled={actions.length === 0}
             onChange={(event) => {
               request.current?.abort();
               request.current = null;
               dispatch({ type: 'edit', action: event.target.value as Action });
             }}
           >
-            {Object.keys(impacts).map((action) => (
+            {actions.length === 0 && (
+              <option value={state.action}>
+                No authorized actions available
+              </option>
+            )}
+            {actions.map(({ action }) => (
               <option key={action} value={action}>
                 {action}
               </option>
@@ -127,6 +152,7 @@ export function ActionReview({
           </select>
         )}
       </Field>
+      {actions.length > 0 && <p>{impacts[state.action]}</p>}
       <p>Price: unknown. Check provider pricing; no spending guarantee.</p>
       {!allowed && (
         <p>

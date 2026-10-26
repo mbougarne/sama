@@ -19,6 +19,8 @@ const filters = [
   'connection_id',
   'type',
   'region',
+  'source_native_id',
+  'source_type',
 ] as const;
 export default function ResourcesPage(scope: Scope) {
   const { itemId } = useParams();
@@ -49,6 +51,10 @@ function ResourceList({ scope }: { scope: Scope }) {
   };
   return (
     <>
+      <p>
+        <Link to="?type=storage.snapshot">Snapshot observations</Link> ·{' '}
+        <Link to="?type=compute.server">Server observations</Link>
+      </p>
       <form
         key={filters.map((field) => params.get(field)).join(':')}
         onSubmit={(event) => {
@@ -72,7 +78,11 @@ function ResourceList({ scope }: { scope: Scope }) {
                   {...attrs}
                   name={field}
                   defaultValue={params.get(field) ?? ''}
-                  maxLength={field === 'account' ? 512 : 128}
+                  maxLength={
+                    field === 'account' || field === 'source_native_id'
+                      ? 512
+                      : 128
+                  }
                 />
               )}
             </Field>

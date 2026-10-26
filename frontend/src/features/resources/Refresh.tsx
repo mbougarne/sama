@@ -23,9 +23,11 @@ const active = (status?: string) =>
 export function Refresh({
   scope,
   connectionId,
+  resourceType = 'compute.server',
 }: {
   scope: Scope;
   connectionId: string;
+  resourceType?: Schema['Resource']['type'];
 }) {
   const client = useQueryClient();
   const visible = useSyncExternalStore(subscribe, snapshot);
@@ -98,7 +100,11 @@ export function Refresh({
     try {
       const value = await apiRequest<{ sync_id: string }>(
         `${path(scope)}/connections/${connectionId}/syncs`,
-        { method: 'POST', signal: controller.signal },
+        {
+          method: 'POST',
+          body: { resource_type: resourceType },
+          signal: controller.signal,
+        },
       );
       setSyncId(value.sync_id);
     } catch (failure) {
@@ -126,7 +132,9 @@ export function Refresh({
         disabled={!allowed || busy || (!!syncId && (!status || active(status)))}
         onClick={() => void refresh()}
       >
-        Refresh connection inventory
+        {resourceType === 'storage.snapshot'
+          ? 'Refresh snapshot inventory'
+          : 'Refresh connection inventory'}
       </button>
       {syncId && <p>Sync reference: {syncId}</p>}
       {sync.data && (
