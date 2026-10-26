@@ -91,3 +91,70 @@ read/get denial and rate behavior, then run the scheduler/HTTP workflow against
 the disposable scope. Record API/fixture versions, dated command outcomes and
 remaining unknowns separately. Existing user/account identifiers, token hashes
 and server fingerprints cannot fill an unresolved project identity requirement.
+
+## Snapshot metadata contracts (SAMA-149)
+
+Reviewed 2026-10-26 against the official Hetzner
+[image schema](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/schema/image.go),
+[image client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/image.go)
+and [token permissions](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/).
+Use a project Read token (GET only). `SnapshotReader` separately maps snapshot
+images, source server when supplied, creation timestamp, native/normalized state,
+image size and minimum disk size in provider GB. Null fields remain unavailable;
+unknown states remain unknown. Description, labels and contents are excluded.
+Pages use fixed snapshot filtering, 50 rows and at most 100 pages. A failed page
+returns no partial page; callers must finish the walk before publishing a scan.
+These ports are not wired into the server-only inventory scanner, public resource
+DTOs or production registries. Stable project identity and live read acceptance
+remain unverified; no provider credentials or live calls were used.
+
+Snapshot actions remain unqualified and absent from production registration.
+Mock contract evidence never qualifies a live action or enables its switch.
+
+### DigitalOcean snapshot metadata (SAMA-152)
+
+Reviewed 2026-10-26 against the official
+[list permissions](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/snapshots_list.yml),
+[get permissions](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/snapshots_get.yml)
+and [metadata schema](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/models/snapshots_base.yml).
+List documents `snapshot:read`; get documents both `snapshot:read` and
+`block_storage_snapshot:read`. The separate port retains source kind/ID for
+Droplet and volume snapshots, region availability and GB sizes. No creation
+status is documented: status is unknown with reason `not_reported`, even if an
+upstream body adds an undocumented status field. Tags and contents are omitted.
+Fixed 50-row pages, a 100-page bound and exact host/path/query checks prevent
+unsafe continuation. Failure never returns a partial page. Team/project identity,
+live read acceptance, scanner/public DTO wiring and production registration remain
+unverified or unavailable, as for the existing provider inventory contracts.
+
+### Dormant Hetzner snapshot creation contract
+
+The separate `SnapshotCreate` adapter shares existing review/worker ports, but is
+absent from runtime factories, capabilities and accepted HTTP intent vocabulary.
+Read/write project tokens would be required; no such credential was used.
+The [official server client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/server.go)
+returns native action plus image for `create_image` with `type=snapshot`.
+Submission rechecks bound facts and is attempted once. The receipt binds action
+and image; observation requires native completion plus the expected source and
+available image. Missing/ambiguous receipts remain unknown for reconciliation,
+never trigger a retry, and must retain the durable worker's source reservation.
+Review marks the chargeable action high impact; its server-owned impact text
+explains continuing provider storage charges and disk-consistency limitations.
+Live account identity, permission/action acceptance and runtime wiring remain
+unverified/unavailable. A mock result cannot enable this contract.
+
+### Dormant Hetzner snapshot deletion contract
+
+The separate `SnapshotDelete` adapter uses the same closed review/worker ports.
+The [official image client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/image.go)
+uses DELETE with no native action object. Review requires an available snapshot
+and an explicitly false deletion-protection flag; it never removes protection.
+High-impact classification delegates recent authentication and typed-target
+confirmation to the shared acceptance service before any future dispatch.
+The fingerprint binds protection and safe snapshot facts, and submission
+rechecks it immediately before one DELETE. Only 204 produces a receipt;
+observation requires that receipt plus an exact-target 404. A permission denial
+is not deletion proof. A lost receipt remains unknown even when the image is
+absent, so the durable worker must retain its reservation and never resubmit.
+Delete does not remove the source server. Native error/absence and permission
+semantics still need live qualification before registration can be considered.
