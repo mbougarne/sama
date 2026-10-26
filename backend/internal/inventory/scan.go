@@ -21,8 +21,9 @@ var ErrScan = errors.New("inventory scan unavailable")
 // Scanner executes a claimed job through injected read-only ports. Registering
 // and starting workers is a separate scheduler ticket; no worker starts here.
 type Scanner struct {
-	Pool   *pgxpool.Pool
-	Reader func(context.Context, provider.Binding) (provider.InventoryReader, error)
+	Pool      *pgxpool.Pool
+	Reader    func(context.Context, provider.Binding) (provider.InventoryReader, error)
+	Snapshots func(context.Context, provider.Binding) (provider.SnapshotReader, error)
 }
 
 // Scan stages only: even the last successful page never changes public resources.
@@ -31,11 +32,12 @@ func (s Scanner) Scan(ctx context.Context, lease job.Lease) error {
 	defer cancel()
 	var run uuid.UUID
 	var actor *uuid.UUID
-	err := s.Pool.QueryRow(ctx, `SELECT j.sync_id,s.actor_id FROM jobs j JOIN sync_runs s
+	var kind string
+	err := s.Pool.QueryRow(ctx, `SELECT j.sync_id,s.actor_id,s.resource_type FROM jobs j JOIN sync_runs s
  ON (s.workspace_id,s.connection_id,s.id)=(j.workspace_id,j.connection_id,j.sync_id)
  WHERE j.id=$1 AND j.workspace_id=$2 AND j.connection_id=$3 AND j.payload_version=2`,
-		lease.ID, lease.Workspace, lease.Connection).Scan(&run, &actor)
-	if err != nil || actor == nil || s.Reader == nil {
+		lease.ID, lease.Workspace, lease.Connection).Scan(&run, &actor, &kind)
+	if err != nil || actor == nil {
 		return ErrScan
 	}
 	return (job.Scheduler{Pool: s.Pool, Now: time.Now}).Run(ctx, lease, func(ctx context.Context) error {
@@ -43,7 +45,7 @@ func (s Scanner) Scan(ctx context.Context, lease job.Lease) error {
 		if err != nil {
 			return err
 		}
-		reader, err := s.Reader(ctx, binding)
+		readPage, err := s.pageReader(ctx, binding, kind)
 		if err != nil {
 			return ErrScan
 		}
@@ -53,7 +55,7 @@ func (s Scanner) Scan(ctx context.Context, lease job.Lease) error {
 			if _, err = s.guard(ctx, lease, run, *actor, binding.Version(), false); err != nil {
 				return err
 			}
-			page, err := reader.Page(ctx, binding, cursor)
+			page, err := readPage(ctx, cursor)
 			if err != nil {
 				return &ScanFailure{Code: failureCode(err)}
 			}
@@ -161,7 +163,7 @@ func (s Scanner) guard(ctx context.Context, lease job.Lease, run, actor uuid.UUI
 	return binding, nil
 }
 
-func (s Scanner) stage(ctx context.Context, lease job.Lease, run, actor uuid.UUID, binding provider.Binding, page provider.InventoryPage, number int) error {
+func (s Scanner) stage(ctx context.Context, lease job.Lease, run, actor uuid.UUID, binding provider.Binding, page scanPage, number int) error {
 	tx, err := platform.BeginTx(ctx, s.Pool, pgx.TxOptions{})
 	if err != nil {
 		return ErrScan
@@ -183,7 +185,7 @@ func (s Scanner) stage(ctx context.Context, lease job.Lease, run, actor uuid.UUI
 			return ErrScan
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO inventory_staging(id,workspace_id,connection_id,api_family,resource_type,scope,native_id,native_status,status,name,details_version,details,observed_at,generation,tombstoned_at,version)
- SELECT $1,$2,$3,$4,'compute.server',s.scope,$5,$6,$7,$8,1,$9,$10,s.generation,NULL,1 FROM sync_runs s WHERE s.id=$11`,
+ SELECT $1,$2,$3,$4,s.resource_type,s.scope,$5,$6,$7,$8,1,$9,$10,s.generation,NULL,1 FROM sync_runs s WHERE s.id=$11`,
 			id, lease.Workspace, lease.Connection, binding.Family(), o.NativeID, o.NativeStatus, o.Status, o.Name, details, o.ObservedAt, run)
 		if err != nil {
 			return &ScanFailure{Code: "provider_response_invalid"}

@@ -21,6 +21,8 @@ type Filters struct {
 	Type       string
 	Region     string
 	Account    string
+	SourceID   string
+	SourceType string
 }
 
 type Resource struct {
@@ -72,10 +74,10 @@ func query(ctx context.Context, pool *pgxpool.Pool, actor, scope uuid.UUID, f Fi
 	if limit == 0 {
 		limit = 50
 	}
-	if f.Type == "" {
+	if f.Type == "" && target == uuid.Nil {
 		f.Type = "compute.server"
 	}
-	if limit < 1 || limit > 200 || f.Type != "compute.server" || len(f.Provider) > 64 || len(f.Region) > 128 || len(f.Account) > 512 || f.Connection != uuid.Nil && f.Connection.Version() != 7 {
+	if limit < 1 || limit > 200 || f.Type != "" && f.Type != "compute.server" && f.Type != SnapshotType || len(f.SourceID) > 512 || f.SourceType != "" && f.SourceType != "compute.server" && f.SourceType != "storage.volume" || len(f.Provider) > 64 || len(f.Region) > 128 || len(f.Account) > 512 || f.Connection != uuid.Nil && f.Connection.Version() != 7 {
 		return ResourcePage{}, workspace.ErrInvalid
 	}
 	after := uuid.Nil
@@ -98,8 +100,8 @@ func query(ctx context.Context, pool *pgxpool.Pool, actor, scope uuid.UUID, f Fi
 	}
 	rows, err := pool.Query(ctx, `SELECT r.id,r.connection_id,c.provider,r.api_family,c.account_identity,r.resource_type,r.scope,r.native_id,r.name,
  COALESCE(r.details->>'region',''),r.status,r.native_status,r.observed_at,
- (SELECT max(completed_at) FROM sync_runs WHERE workspace_id=r.workspace_id AND connection_id=r.connection_id AND scope=r.scope AND status='succeeded'),
- (SELECT failure_code FROM sync_runs WHERE workspace_id=r.workspace_id AND connection_id=r.connection_id AND scope=r.scope ORDER BY generation_number DESC LIMIT 1),
+ (SELECT max(completed_at) FROM sync_runs WHERE workspace_id=r.workspace_id AND connection_id=r.connection_id AND scope=r.scope AND resource_type=r.resource_type AND status='succeeded'),
+ (SELECT failure_code FROM sync_runs WHERE workspace_id=r.workspace_id AND connection_id=r.connection_id AND scope=r.scope AND resource_type=r.resource_type ORDER BY generation_number DESC LIMIT 1),
  r.details,m.role,g.actions,c.status,CASE WHEN c.permissions_verified_at IS NULL THEN '{}'::text[] ELSE c.verified_capabilities END
  FROM resources r JOIN sync_runs published ON (published.workspace_id,published.connection_id,published.generation)=(r.workspace_id,r.connection_id,r.generation) AND published.resource_type=r.resource_type AND published.scope=r.scope AND published.status='succeeded'
  JOIN connections c ON (c.workspace_id,c.id)=(r.workspace_id,r.connection_id)
@@ -107,11 +109,13 @@ func query(ctx context.Context, pool *pgxpool.Pool, actor, scope uuid.UUID, f Fi
  JOIN memberships m ON m.workspace_id=w.id AND m.user_id=$2 JOIN users u ON u.id=m.user_id AND u.disabled_at IS NULL
  JOIN connection_grants g ON (g.workspace_id,g.connection_id,g.user_id)=(r.workspace_id,r.connection_id,m.user_id)
  WHERE r.workspace_id=$1 AND 'read'=ANY(g.actions) AND r.tombstoned_at IS NULL AND r.id>$3
- AND r.resource_type=$4 AND ($5::uuid='00000000-0000-0000-0000-000000000000' OR r.connection_id=$5)
+ AND ($4='' OR r.resource_type=$4) AND ($5::uuid='00000000-0000-0000-0000-000000000000' OR r.connection_id=$5)
  AND ($6='' OR r.details->>'region'=$6) AND ($7='' OR c.account_identity=$7)
  AND ($9::uuid='00000000-0000-0000-0000-000000000000' OR r.id=$9)
  AND ($10='' OR c.provider=$10)
- ORDER BY r.id LIMIT $8`, scope, actor, after, f.Type, f.Connection, f.Region, f.Account, limit+1, target, f.Provider)
+ AND ($11='' OR r.details->'snapshot'->>'source_native_id'=$11)
+ AND ($12='' OR r.details->'snapshot'->>'source_type'=$12)
+ ORDER BY r.id LIMIT $8`, scope, actor, after, f.Type, f.Connection, f.Region, f.Account, limit+1, target, f.Provider, f.SourceID, f.SourceType)
 	if err != nil {
 		return ResourcePage{}, workspace.ErrStore
 	}

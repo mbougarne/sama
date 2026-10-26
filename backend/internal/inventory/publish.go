@@ -40,14 +40,14 @@ func (s Scanner) Complete(ctx context.Context, lease job.Lease, scanErr error) e
 	var run, generation uuid.UUID
 	var actor *uuid.UUID
 	var version *int64
-	var scope string
+	var scope, kind string
 	var complete bool
 	var number int64
-	err = tx.QueryRow(ctx, `SELECT s.id,s.actor_id,s.credential_version,s.scope,s.scan_complete,s.generation_number,s.generation FROM sync_runs s
+	err = tx.QueryRow(ctx, `SELECT s.id,s.actor_id,s.credential_version,s.scope,s.scan_complete,s.generation_number,s.generation,s.resource_type FROM sync_runs s
  JOIN jobs j ON (j.workspace_id,j.connection_id,j.sync_id)=(s.workspace_id,s.connection_id,s.id)
  WHERE j.id=$1 AND j.workspace_id=$2 AND j.connection_id=$3 AND j.lease_owner=$4 AND j.lease_token=$5
  AND j.state='running' AND j.lease_expires_at>clock_timestamp() AND j.deadline>clock_timestamp()
- AND s.status IN ('pending','running') FOR UPDATE OF j,s`, lease.ID, lease.Workspace, lease.Connection, lease.Owner, lease.Token).Scan(&run, &actor, &version, &scope, &complete, &number, &generation)
+ AND s.status IN ('pending','running') FOR UPDATE OF j,s`, lease.ID, lease.Workspace, lease.Connection, lease.Owner, lease.Token).Scan(&run, &actor, &version, &scope, &complete, &number, &generation, &kind)
 	if err != nil {
 		return job.ErrLease
 	}
@@ -67,7 +67,7 @@ func (s Scanner) Complete(ctx context.Context, lease job.Lease, scanErr error) e
 		}
 		var newer bool
 		if tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM sync_runs WHERE workspace_id=$1 AND connection_id=$2
-   AND resource_type='compute.server' AND scope=$3 AND status='succeeded' AND generation_number>$4)`, lease.Workspace, lease.Connection, scope, number).Scan(&newer) != nil {
+   AND resource_type=$5 AND scope=$3 AND status='succeeded' AND generation_number>$4)`, lease.Workspace, lease.Connection, scope, number, kind).Scan(&newer) != nil {
 			return ErrScan
 		}
 		if newer {
@@ -79,16 +79,16 @@ func (s Scanner) Complete(ctx context.Context, lease job.Lease, scanErr error) e
     ON CONFLICT(workspace_id,connection_id,api_family,resource_type,scope,native_id) DO UPDATE
     SET native_status=EXCLUDED.native_status,status=EXCLUDED.status,name=EXCLUDED.name,details=EXCLUDED.details,
     observed_at=EXCLUDED.observed_at,generation=EXCLUDED.generation,tombstoned_at=NULL,version=resources.version+1
-    WHERE EXISTS(SELECT 1 FROM sync_runs old WHERE old.workspace_id=resources.workspace_id AND old.connection_id=resources.connection_id AND old.scope=resources.scope AND old.generation=resources.generation AND old.generation_number<=$4)`, lease.Workspace, lease.Connection, generation, number)
+    WHERE EXISTS(SELECT 1 FROM sync_runs old WHERE old.workspace_id=resources.workspace_id AND old.connection_id=resources.connection_id AND old.scope=resources.scope AND old.resource_type=resources.resource_type AND old.generation=resources.generation AND old.generation_number<=$4)`, lease.Workspace, lease.Connection, generation, number)
 			if err != nil {
 				return ErrScan
 			}
 			_, err = tx.Exec(ctx, `UPDATE resources r SET tombstoned_at=clock_timestamp(),version=version+1
-    WHERE r.workspace_id=$1 AND r.connection_id=$2 AND r.api_family=$3 AND r.resource_type='compute.server'
+    WHERE r.workspace_id=$1 AND r.connection_id=$2 AND r.api_family=$3 AND r.resource_type=$7
     AND r.scope=$4 AND r.tombstoned_at IS NULL
-    AND EXISTS(SELECT 1 FROM sync_runs old WHERE old.workspace_id=r.workspace_id AND old.connection_id=r.connection_id AND old.scope=r.scope AND old.generation=r.generation AND old.generation_number<=$6)
+    AND EXISTS(SELECT 1 FROM sync_runs old WHERE old.workspace_id=r.workspace_id AND old.connection_id=r.connection_id AND old.scope=r.scope AND old.resource_type=r.resource_type AND old.generation=r.generation AND old.generation_number<=$6)
     AND NOT EXISTS(SELECT 1 FROM inventory_staging i WHERE i.workspace_id=r.workspace_id
-      AND i.connection_id=r.connection_id AND i.generation=$5 AND i.native_id=r.native_id)`, lease.Workspace, lease.Connection, binding.Family(), scope, generation, number)
+      AND i.connection_id=r.connection_id AND i.generation=$5 AND i.native_id=r.native_id)`, lease.Workspace, lease.Connection, binding.Family(), scope, generation, number, kind)
 			if err != nil {
 				return ErrScan
 			}
