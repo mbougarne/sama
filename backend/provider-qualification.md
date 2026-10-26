@@ -210,3 +210,13 @@ This request/response binding is not source identity in the inventory model and
 is not an idempotency guarantee. Missing receipts stay unknown; never discover a
 replacement by description or repeat submission. High-impact source review and
 charge/consistency impact remain server-owned. Deleted/future states are unknown.
+
+### Vultr dormant snapshot deletion
+
+API-key ACL/IP permissions must allow the selected read/delete; no permissions
+are changed. Review requires native complete state, high-impact classification
+and the shared recent-auth/typed-target flow before future dispatch. One DELETE
+requires native 204. A retained receipt plus exact-target 404 or documented native
+deleted state establishes absence. Pending is not deletion, permission denial
+is not absence, and missing receipts remain unknown without retry. Identity,
+live permission/completion semantics and all production registration remain closed.
