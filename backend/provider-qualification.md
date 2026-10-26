@@ -142,3 +142,19 @@ Review marks the chargeable action high impact; its server-owned impact text
 explains continuing provider storage charges and disk-consistency limitations.
 Live account identity, permission/action acceptance and runtime wiring remain
 unverified/unavailable. A mock result cannot enable this contract.
+
+### Dormant Hetzner snapshot deletion contract
+
+The separate `SnapshotDelete` adapter uses the same closed review/worker ports.
+The [official image client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/image.go)
+uses DELETE with no native action object. Review requires an available snapshot
+and an explicitly false deletion-protection flag; it never removes protection.
+High-impact classification delegates recent authentication and typed-target
+confirmation to the shared acceptance service before any future dispatch.
+The fingerprint binds protection and safe snapshot facts, and submission
+rechecks it immediately before one DELETE. Only 204 produces a receipt;
+observation requires that receipt plus an exact-target 404. A permission denial
+is not deletion proof. A lost receipt remains unknown even when the image is
+absent, so the durable worker must retain its reservation and never resubmit.
+Delete does not remove the source server. Native error/absence and permission
+semantics still need live qualification before registration can be considered.
