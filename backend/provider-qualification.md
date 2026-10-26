@@ -158,3 +158,24 @@ is not deletion proof. A lost receipt remains unknown even when the image is
 absent, so the durable worker must retain its reservation and never resubmit.
 Delete does not remove the source server. Native error/absence and permission
 semantics still need live qualification before registration can be considered.
+
+## Vultr snapshot metadata contract
+
+Reviewed 2026-10-26 against the official
+[Go model/GET client](https://github.com/vultr/govultr/blob/master/snapshot.go),
+[SDK fixtures](https://github.com/vultr/govultr/blob/master/snapshot_test.go) and
+[generated model](https://github.com/vultr/vultr-csharp/blob/main/docs/Snapshot.md).
+Use an explicitly supplied API key permitted to read snapshots; native denial
+is authoritative, and no credential/IP permission changes are performed.
+List/get use exact endpoints, 50-row pages and bounded opaque native cursors.
+An internal page counter caps each walk at 100 pages, and immediate repeats or
+unsafe cursors fail closed. Callers must impose a whole-walk time budget and
+preserve last-good observations after any incomplete scan.
+Native pending/complete/deleted states map explicitly; future states stay unknown.
+Size is retained as integer bytes without a GB estimate. The response model has
+no source-instance identity: request-only instance_id and description never fill
+that gap. Description, contents and unqualified compressed-size units are omitted.
+Explicit-offset times become UTC instants; SDK fixture times without offsets
+remain native text with timezone_not_reported rather than guessed UTC.
+Stable account identity, live read qualification and production registration
+remain unverified; no scanner/public DTO wiring is introduced by this port.

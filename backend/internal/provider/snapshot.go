@@ -11,18 +11,21 @@ import (
 // Missing source and nil sizes/creation time mean unavailable. GB retains provider units;
 // sizes are not estimates of a bill. NativeStatus is empty when not reported.
 type SnapshotObservation struct {
-	NativeID       string     `json:"native_id"`
-	Name           string     `json:"name"`
-	SourceNativeID string     `json:"source_native_id,omitempty"`
-	SourceType     string     `json:"source_type,omitempty"`
-	Status         string     `json:"status"`
-	NativeStatus   string     `json:"native_status"`
-	StatusReason   string     `json:"status_reason,omitempty"`
-	CreatedAt      *time.Time `json:"created_at"`
-	SizeGB         *float64   `json:"size_gb"`
-	MinimumDiskGB  *float64   `json:"minimum_disk_gb"`
-	Regions        []string   `json:"regions"`
-	ObservedAt     time.Time  `json:"observed_at"`
+	NativeID           string     `json:"native_id"`
+	Name               string     `json:"name"`
+	SourceNativeID     string     `json:"source_native_id,omitempty"`
+	SourceType         string     `json:"source_type,omitempty"`
+	Status             string     `json:"status"`
+	NativeStatus       string     `json:"native_status"`
+	StatusReason       string     `json:"status_reason,omitempty"`
+	CreatedAt          *time.Time `json:"created_at"`
+	NativeCreatedAt    string     `json:"native_created_at,omitempty"`
+	CreationTimeReason string     `json:"creation_time_reason,omitempty"`
+	SizeBytes          *int64     `json:"size_bytes"`
+	SizeGB             *float64   `json:"size_gb"`
+	MinimumDiskGB      *float64   `json:"minimum_disk_gb"`
+	Regions            []string   `json:"regions"`
+	ObservedAt         time.Time  `json:"observed_at"`
 }
 
 type SnapshotPage struct {
@@ -54,6 +57,9 @@ func CheckedSnapshot(o SnapshotObservation) (SnapshotObservation, error) {
 		if region == "" || len(region) > 128 || !utf8.ValidString(region) {
 			return SnapshotObservation{}, InvalidResponse()
 		}
+	}
+	if o.SizeBytes != nil && *o.SizeBytes < 0 || len(o.NativeCreatedAt) > 64 || !utf8.ValidString(o.NativeCreatedAt) {
+		return SnapshotObservation{}, InvalidResponse()
 	}
 	if o.CreatedAt != nil && o.CreatedAt.IsZero() {
 		return SnapshotObservation{}, InvalidResponse()
