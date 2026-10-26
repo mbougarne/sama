@@ -108,10 +108,8 @@ These ports are not wired into the server-only inventory scanner, public resourc
 DTOs or production registries. Stable project identity and live read acceptance
 remain unverified; no provider credentials or live calls were used.
 
-SAMA-150/151 are blocked on SAMA-117's unrun action-specific disposable evidence.
-No snapshot create/delete implementation or enablement is claimed. Their required
-recent-auth, bound review, reservation and reconciliation integration remains work
-for after that prerequisite; mock results cannot satisfy its live evidence gate.
+Snapshot actions remain unqualified and absent from production registration.
+Mock contract evidence never qualifies a live action or enables its switch.
 
 ### DigitalOcean snapshot metadata (SAMA-152)
 
@@ -128,3 +126,19 @@ Fixed 50-row pages, a 100-page bound and exact host/path/query checks prevent
 unsafe continuation. Failure never returns a partial page. Team/project identity,
 live read acceptance, scanner/public DTO wiring and production registration remain
 unverified or unavailable, as for the existing provider inventory contracts.
+
+### Dormant Hetzner snapshot creation contract
+
+The separate `SnapshotCreate` adapter shares existing review/worker ports, but is
+absent from runtime factories, capabilities and accepted HTTP intent vocabulary.
+Read/write project tokens would be required; no such credential was used.
+The [official server client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/server.go)
+returns native action plus image for `create_image` with `type=snapshot`.
+Submission rechecks bound facts and is attempted once. The receipt binds action
+and image; observation requires native completion plus the expected source and
+available image. Missing/ambiguous receipts remain unknown for reconciliation,
+never trigger a retry, and must retain the durable worker's source reservation.
+Review marks the chargeable action high impact; its server-owned impact text
+explains continuing provider storage charges and disk-consistency limitations.
+Live account identity, permission/action acceptance and runtime wiring remain
+unverified/unavailable. A mock result cannot enable this contract.
