@@ -179,3 +179,14 @@ Explicit-offset times become UTC instants; SDK fixture times without offsets
 remain native text with timezone_not_reported rather than guessed UTC.
 Stable account identity, live read qualification and production registration
 remain unverified; no scanner/public DTO wiring is introduced by this port.
+
+### DigitalOcean dormant snapshot creation
+
+Scopes are droplet:read, droplet:update and image:create, per the official
+[Droplet action contract](https://github.com/digitalocean/openapi/blob/master/specification/resources/droplets/dropletActions_post.yml).
+The fixed snapshot name is not a correlation/idempotency token. Native action ID,
+type, source Droplet and completed_at establish completion; the snapshot reader
+has no completion status or action-correlated image ID, so neither is invented.
+Fresh unlocked-source review and one POST are required. Missing receipts stay
+unknown and retain the shared worker's reservation; no label search or retry.
+Server-owned impact warns about charges and consistency. No runtime registration.
