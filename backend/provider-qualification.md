@@ -112,3 +112,19 @@ SAMA-150/151 are blocked on SAMA-117's unrun action-specific disposable evidence
 No snapshot create/delete implementation or enablement is claimed. Their required
 recent-auth, bound review, reservation and reconciliation integration remains work
 for after that prerequisite; mock results cannot satisfy its live evidence gate.
+
+### DigitalOcean snapshot metadata (SAMA-152)
+
+Reviewed 2026-10-26 against the official
+[list permissions](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/snapshots_list.yml),
+[get permissions](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/snapshots_get.yml)
+and [metadata schema](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/models/snapshots_base.yml).
+List documents `snapshot:read`; get documents both `snapshot:read` and
+`block_storage_snapshot:read`. The separate port retains source kind/ID for
+Droplet and volume snapshots, region availability and GB sizes. No creation
+status is documented: status is unknown with reason `not_reported`, even if an
+upstream body adds an undocumented status field. Tags and contents are omitted.
+Fixed 50-row pages, a 100-page bound and exact host/path/query checks prevent
+unsafe continuation. Failure never returns a partial page. Team/project identity,
+live read acceptance, scanner/public DTO wiring and production registration remain
+unverified or unavailable, as for the existing provider inventory contracts.
