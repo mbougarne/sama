@@ -158,3 +158,65 @@ is not deletion proof. A lost receipt remains unknown even when the image is
 absent, so the durable worker must retain its reservation and never resubmit.
 Delete does not remove the source server. Native error/absence and permission
 semantics still need live qualification before registration can be considered.
+
+## Vultr snapshot metadata contract
+
+Reviewed 2026-10-26 against the official
+[Go model/GET client](https://github.com/vultr/govultr/blob/master/snapshot.go),
+[SDK fixtures](https://github.com/vultr/govultr/blob/master/snapshot_test.go) and
+[generated model](https://github.com/vultr/vultr-csharp/blob/main/docs/Snapshot.md).
+Use an explicitly supplied API key permitted to read snapshots; native denial
+is authoritative, and no credential/IP permission changes are performed.
+List/get use exact endpoints, 50-row pages and bounded opaque native cursors.
+An internal page counter caps each walk at 100 pages, and immediate repeats or
+unsafe cursors fail closed. Callers must impose a whole-walk time budget and
+preserve last-good observations after any incomplete scan.
+Native pending/complete/deleted states map explicitly; future states stay unknown.
+Size is retained as integer bytes without a GB estimate. The response model has
+no source-instance identity: request-only instance_id and description never fill
+that gap. Description, contents and unqualified compressed-size units are omitted.
+Explicit-offset times become UTC instants; SDK fixture times without offsets
+remain native text with timezone_not_reported rather than guessed UTC.
+Stable account identity, live read qualification and production registration
+remain unverified; no scanner/public DTO wiring is introduced by this port.
+
+### DigitalOcean dormant snapshot creation
+
+Scopes are droplet:read, droplet:update and image:create, per the official
+[Droplet action contract](https://github.com/digitalocean/openapi/blob/master/specification/resources/droplets/dropletActions_post.yml).
+The fixed snapshot name is not a correlation/idempotency token. Native action ID,
+type, source Droplet and completed_at establish completion; the snapshot reader
+has no completion status or action-correlated image ID, so neither is invented.
+Fresh unlocked-source review and one POST are required. Missing receipts stay
+unknown and retain the shared worker's reservation; no label search or retry.
+Server-owned impact warns about charges and consistency. No runtime registration.
+
+### DigitalOcean dormant snapshot deletion
+
+The official [DELETE contract](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/snapshots_delete.yml)
+requires image:delete and snapshot:delete, plus read permissions for review.
+High-impact review requires shared recent-auth/typed-target acceptance before any
+future dispatch. The API does not document an image creation state; an existing
+readable snapshot is reviewed without inventing one. One DELETE accepts native
+204 only. A stored receipt plus exact-target 404 proves observed absence; denial
+or a missing receipt does not. Unknown remains reserved, never resubmitted.
+
+### Vultr dormant snapshot creation
+
+The [official client](https://github.com/vultr/govultr/blob/master/snapshot.go)
+POSTs instance_id and returns a snapshot ID, not a native action ID. The receipt
+binds the returned ID to the submitted source; GET completion must match that ID.
+This request/response binding is not source identity in the inventory model and
+is not an idempotency guarantee. Missing receipts stay unknown; never discover a
+replacement by description or repeat submission. High-impact source review and
+charge/consistency impact remain server-owned. Deleted/future states are unknown.
+
+### Vultr dormant snapshot deletion
+
+API-key ACL/IP permissions must allow the selected read/delete; no permissions
+are changed. Review requires native complete state, high-impact classification
+and the shared recent-auth/typed-target flow before future dispatch. One DELETE
+requires native 204. A retained receipt plus exact-target 404 or documented native
+deleted state establishes absence. Pending is not deletion, permission denial
+is not absence, and missing receipts remain unknown without retry. Identity,
+live permission/completion semantics and all production registration remain closed.
