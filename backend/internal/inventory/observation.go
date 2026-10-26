@@ -14,14 +14,16 @@ import (
 var ErrObservation = errors.New("invalid inventory observation")
 
 type Details struct {
-	Region      string `json:"region,omitempty"`
-	MachineType string `json:"machine_type,omitempty"`
+	Region      string           `json:"region,omitempty"`
+	MachineType string           `json:"machine_type,omitempty"`
+	Snapshot    *SnapshotDetails `json:"snapshot,omitempty"`
 }
 
 type Observation struct {
 	ID           uuid.UUID
 	Workspace    uuid.UUID
 	Connection   uuid.UUID
+	ResourceType string
 	Family       string
 	Scope        string
 	NativeID     string
@@ -39,18 +41,25 @@ func Upsert(ctx context.Context, tx pgx.Tx, o Observation) (uuid.UUID, error) {
 	if o.ID.Version() != 7 || o.Generation.Version() != 7 {
 		return uuid.Nil, ErrObservation
 	}
+	kind := o.ResourceType
+	if kind == "" {
+		kind = "compute.server"
+	}
+	if kind != "compute.server" && kind != "storage.snapshot" || (kind == "storage.snapshot") != (o.Details.Snapshot != nil) {
+		return uuid.Nil, ErrObservation
+	}
 	details, err := json.Marshal(o.Details)
 	if err != nil || len(details) > 65536 {
 		return uuid.Nil, ErrObservation
 	}
 	var id uuid.UUID
 	err = tx.QueryRow(ctx, `INSERT INTO resources(id,workspace_id,connection_id,api_family,resource_type,scope,native_id,native_status,status,name,details_version,details,observed_at,generation)
-        SELECT $1,$2,$3,$4,'compute.server',$5,$6,$7,$8,$9,1,$10,$11,$12
+        SELECT $1,$2,$3,$4,$13,$5,$6,$7,$8,$9,1,$10,$11,$12
         FROM connections WHERE workspace_id=$2 AND id=$3 AND api_family=$4
         ON CONFLICT(workspace_id,connection_id,api_family,resource_type,scope,native_id)
         DO UPDATE SET native_status=EXCLUDED.native_status,status=EXCLUDED.status,name=EXCLUDED.name,
         details=EXCLUDED.details,observed_at=EXCLUDED.observed_at,generation=EXCLUDED.generation,
-        tombstoned_at=NULL,version=resources.version+1 RETURNING id`, o.ID, o.Workspace, o.Connection, o.Family, o.Scope, o.NativeID, o.NativeStatus, o.Status, o.Name, details, o.ObservedAt, o.Generation).Scan(&id)
+        tombstoned_at=NULL,version=resources.version+1 RETURNING id`, o.ID, o.Workspace, o.Connection, o.Family, o.Scope, o.NativeID, o.NativeStatus, o.Status, o.Name, details, o.ObservedAt, o.Generation, kind).Scan(&id)
 	if err != nil {
 		return uuid.Nil, ErrObservation
 	}

@@ -40,7 +40,7 @@ func (d Dispatcher) Work(ctx context.Context, lease job.Lease) error {
 	if err != nil {
 		return d.rejectUnsent(ctx, lease, err)
 	}
-	factory := d.Factories[p.authority.provider+"/"+p.authority.binding.Family()]
+	factory := d.Factories[factoryKey(p.authority.provider+"/"+p.authority.binding.Family(), p.review.intent.Action)]
 	if factory == nil {
 		return d.rejectUnsent(ctx, lease, ErrUnsupported)
 	}

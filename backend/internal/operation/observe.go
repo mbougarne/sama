@@ -34,7 +34,7 @@ func (d Dispatcher) observe(ctx context.Context, lease job.Lease, p dispatchPlan
 	if err != nil {
 		return ErrStore
 	}
-	factory := d.Factories[brand+"/"+family]
+	factory := d.Factories[factoryKey(brand+"/"+family, p.review.intent.Action)]
 	if factory == nil {
 		return ErrUnsupported
 	}

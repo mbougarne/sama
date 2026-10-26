@@ -17,6 +17,13 @@ var ErrQuota = errors.New("refresh queue quota reached")
 // Enqueue joins the caller's transaction. The workspace row lock serializes
 // admission across API replicas and membership/grant changes.
 func Enqueue(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID) (uuid.UUID, error) {
+	return enqueueType(ctx, tx, actor, scope, connection, "compute.server")
+}
+
+func enqueueType(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID, kind string) (uuid.UUID, error) {
+	if kind != "compute.server" && kind != SnapshotType {
+		return uuid.Nil, workspace.ErrInvalid
+	}
 	var role, status string
 	var actions []string
 	var active bool
@@ -59,13 +66,17 @@ func Enqueue(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID)
 	if !refresh || !workspace.WithinCeiling(role, "refresh") || status != "active" || !active {
 		return uuid.Nil, workspace.ErrDenied
 	}
-	return enqueueLocked(ctx, tx, actor, scope, connection)
+	return enqueueLockedType(ctx, tx, actor, scope, connection, kind)
 }
 
 func enqueueLocked(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID) (uuid.UUID, error) {
+	return enqueueLockedType(ctx, tx, actor, scope, connection, "compute.server")
+}
+
+func enqueueLockedType(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid.UUID, kind string) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := tx.QueryRow(ctx, `SELECT id FROM sync_runs WHERE workspace_id=$1 AND connection_id=$2
- AND resource_type='compute.server' AND scope='global' AND status IN ('pending','running')`, scope, connection).Scan(&id)
+ AND resource_type=$3 AND scope='global' AND status IN ('pending','running')`, scope, connection, kind).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
@@ -91,7 +102,7 @@ func enqueueLocked(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid
 		return uuid.Nil, workspace.ErrStore
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO sync_runs(id,workspace_id,connection_id,resource_type,scope,generation,actor_id)
- VALUES($1,$2,$3,'compute.server','global',$1,$4)`, id, scope, connection, actor)
+ VALUES($1,$2,$3,$5,'global',$1,$4)`, id, scope, connection, actor, kind)
 	if err != nil {
 		return uuid.Nil, workspace.ErrStore
 	}
@@ -104,12 +115,16 @@ func enqueueLocked(ctx context.Context, tx pgx.Tx, actor, scope, connection uuid
 }
 
 func Refresh(ctx context.Context, pool *pgxpool.Pool, actor, scope, connection uuid.UUID) (uuid.UUID, error) {
+	return RefreshType(ctx, pool, actor, scope, connection, "compute.server")
+}
+
+func RefreshType(ctx context.Context, pool *pgxpool.Pool, actor, scope, connection uuid.UUID, kind string) (uuid.UUID, error) {
 	tx, err := platform.BeginTx(ctx, pool, pgx.TxOptions{})
 	if err != nil {
 		return uuid.Nil, workspace.ErrStore
 	}
 	defer tx.Rollback(ctx)
-	id, err := Enqueue(ctx, tx, actor, scope, connection)
+	id, err := enqueueType(ctx, tx, actor, scope, connection, kind)
 	if err != nil {
 		return uuid.Nil, err
 	}

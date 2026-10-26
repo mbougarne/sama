@@ -58,6 +58,7 @@ type Review struct {
 type authority struct {
 	binding                             provider.Binding
 	provider, scope, native, name, role string
+	kind                                string
 	grants, verified                    []string
 	policy                              int64
 	account                             string
@@ -73,15 +74,15 @@ func (s *Service) authority(ctx context.Context, tx pgx.Tx, actor, scope, target
 	var family string
 	var version int64
 	err := tx.QueryRow(ctx, `SELECT c.id,c.provider,c.api_family,c.active_credential_version,r.scope,r.native_id,r.name,m.role,g.actions,
- CASE WHEN c.permissions_verified_at IS NULL THEN '{}'::text[] ELSE c.verified_capabilities END,w.policy_version,c.account_identity
+ CASE WHEN c.permissions_verified_at IS NULL THEN '{}'::text[] ELSE c.verified_capabilities END,w.policy_version,c.account_identity,r.resource_type
  FROM resources r JOIN connections c ON (c.workspace_id,c.id)=(r.workspace_id,r.connection_id)
  JOIN workspaces w ON w.id=r.workspace_id JOIN memberships m ON m.workspace_id=w.id AND m.user_id=$2
  JOIN users u ON u.id=m.user_id AND u.disabled_at IS NULL
  JOIN connection_grants g ON (g.workspace_id,g.connection_id,g.user_id)=(w.id,c.id,m.user_id)
  JOIN credential_versions v ON (v.workspace_id,v.connection_id,v.version)=(w.id,c.id,c.active_credential_version)
  JOIN sync_runs published ON (published.workspace_id,published.connection_id,published.scope,published.generation)=(r.workspace_id,r.connection_id,r.scope,r.generation)
- WHERE r.workspace_id=$1 AND r.id=$3 AND r.tombstoned_at IS NULL AND published.status='succeeded'
- AND 'read'=ANY(g.actions) AND c.status='active' AND v.revoked_at IS NULL FOR UPDATE OF c`, scope, actor, target).Scan(&conn, &a.provider, &family, &version, &a.scope, &a.native, &a.name, &a.role, &a.grants, &a.verified, &a.policy, &a.account)
+ WHERE r.workspace_id=$1 AND r.id=$3 AND r.tombstoned_at IS NULL AND published.status='succeeded' AND published.resource_type=r.resource_type
+ AND 'read'=ANY(g.actions) AND c.status='active' AND v.revoked_at IS NULL FOR UPDATE OF c`, scope, actor, target).Scan(&conn, &a.provider, &family, &version, &a.scope, &a.native, &a.name, &a.role, &a.grants, &a.verified, &a.policy, &a.account, &a.kind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return authority{}, workspace.ErrNotFound
 	}
@@ -98,17 +99,17 @@ func (s *Service) authority(ctx context.Context, tx pgx.Tx, actor, scope, target
 
 func authorized(a authority, action string, high bool) bool {
 	class := "operate"
-	if high {
+	if high || snapshotAction(action) {
 		class = "high_impact"
 	}
-	return workspace.WithinCeiling(a.role, class) && slices.Contains(a.grants, class) && slices.Contains(a.verified, action)
+	return a.kind == targetType(action) && workspace.WithinCeiling(a.role, class) && slices.Contains(a.grants, class) && slices.Contains(a.verified, action)
 }
 
 func (s *Service) inspect(ctx context.Context, a authority, i Intent) (provider.Preconditions, error) {
 	if s == nil || !s.enabled {
 		return provider.Preconditions{}, ErrUnsupported
 	}
-	factory := s.factories[a.provider+"/"+a.binding.Family()]
+	factory := s.factories[factoryKey(a.provider+"/"+a.binding.Family(), i.Action)]
 	if factory == nil || s.policy != nil && !s.policy.permits(a.provider+"/"+a.binding.Family(), i.Action) {
 		return provider.Preconditions{}, ErrUnsupported
 	}
@@ -125,6 +126,9 @@ func (s *Service) inspect(ctx context.Context, a authority, i Intent) (provider.
 		return e
 	})
 	if err != nil {
+		return provider.Preconditions{}, ErrProvider
+	}
+	if snapshotAction(i.Action) && !p.HighImpact {
 		return provider.Preconditions{}, ErrProvider
 	}
 	if !p.Allowed || p.Fingerprint == ([32]byte{}) {

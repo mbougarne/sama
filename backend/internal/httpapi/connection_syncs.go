@@ -29,15 +29,22 @@ func (a *Auth) connectionSyncs(w http.ResponseWriter, r *http.Request) bool {
 		return true
 	}
 	id, err := identifier.Parse(parts[0])
-	if err != nil {
+	if err != nil || r.URL.RawQuery != "" {
 		a.memberFailure(w, r, workspace.ErrInvalid)
 		return true
 	}
-	var input struct{}
+	var input struct {
+		ResourceType json.RawMessage `json:"resource_type"`
+	}
 	if !a.decodeMutation(w, r, &input) {
 		return true
 	}
-	syncID, err := inventory.Refresh(r.Context(), a.Pool, m.UserID, m.WorkspaceID, id)
+	kind := "compute.server"
+	if len(input.ResourceType) > 0 && (json.Unmarshal(input.ResourceType, &kind) != nil || kind == "" || strings.TrimSpace(string(input.ResourceType)) == "null") {
+		a.memberFailure(w, r, workspace.ErrInvalid)
+		return true
+	}
+	syncID, err := inventory.RefreshType(r.Context(), a.Pool, m.UserID, m.WorkspaceID, id, kind)
 	if errors.Is(err, inventory.ErrQuota) {
 		writeProblem(w, r, 429, "queue_quota_reached", "Too Many Requests")
 		return true

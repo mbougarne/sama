@@ -24,7 +24,7 @@ func (a *Auth) resourceList(w http.ResponseWriter, r *http.Request) bool {
 	invalid := err != nil
 	for key, values := range q {
 		switch key {
-		case "limit", "cursor", "connection_id", "type", "region", "account", "provider":
+		case "limit", "cursor", "connection_id", "type", "region", "account", "provider", "source_native_id", "source_type":
 		default:
 			invalid = true
 		}
@@ -35,7 +35,7 @@ func (a *Auth) resourceList(w http.ResponseWriter, r *http.Request) bool {
 		limit, err = strconv.Atoi(value)
 		invalid = invalid || err != nil || limit < 1 || limit > 200
 	}
-	filters := inventory.Filters{Type: q.Get("type"), Region: q.Get("region"), Account: q.Get("account"), Provider: q.Get("provider")}
+	filters := inventory.Filters{Type: q.Get("type"), Region: q.Get("region"), Account: q.Get("account"), Provider: q.Get("provider"), SourceID: q.Get("source_native_id"), SourceType: q.Get("source_type")}
 	if value := q.Get("connection_id"); value != "" {
 		filters.Connection, err = identifier.Parse(value)
 		invalid = invalid || err != nil

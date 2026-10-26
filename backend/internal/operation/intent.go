@@ -21,7 +21,7 @@ func (i Intent) Validate() error {
 		return ErrInvalid
 	}
 	switch i.Action {
-	case "compute.server.power_on", "compute.server.shutdown", "compute.server.power_off", "compute.server.reboot":
+	case "compute.server.power_on", "compute.server.shutdown", "compute.server.power_off", "compute.server.reboot", "compute.server.snapshot_create", "storage.snapshot.delete":
 		return nil
 	default:
 		return ErrInvalid

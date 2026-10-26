@@ -27,8 +27,16 @@ func classifyReceipt(r provider.Receipt, err error) (string, *string) {
 	return "reconciling", nil
 }
 
+var snapshotReference = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}(/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}){0,2}$`)
+
+func classifyActionReceipt(action string, r provider.Receipt, err error) (string, *string) {
+	if snapshotAction(action) && err == nil && r.Outcome == "accepted" && snapshotReference.MatchString(r.Reference) {
+		return "waiting_provider", &r.Reference
+	}
+	return classifyReceipt(r, err)
+}
+
 func (d Dispatcher) receipt(ctx context.Context, lease job.Lease, r provider.Receipt, submitErr error) error {
-	to, reference := classifyReceipt(r, submitErr)
 	tx, err := platform.BeginTx(ctx, d.Service.pool, pgx.TxOptions{})
 	if err != nil {
 		return ErrStore
@@ -41,6 +49,7 @@ func (d Dispatcher) receipt(ctx context.Context, lease job.Lease, r provider.Rec
 	if p.state != "dispatching" {
 		return ErrState
 	}
+	to, reference := classifyActionReceipt(p.review.intent.Action, r, submitErr)
 	if _, err = tx.Exec(ctx, `UPDATE operations SET provider_reference=$3 WHERE workspace_id=$1 AND id=$2`, lease.Workspace, p.id, reference); err != nil {
 		return ErrStore
 	}
