@@ -26,10 +26,10 @@ func Reserve(ctx context.Context, tx pgx.Tx, workspace, connection, id uuid.UUID
 	if target.Kind != "resource" && target.Kind != "creation" || len(target.Scope) == 0 || len(target.Scope) > 128 || len(target.NativeID) == 0 || len(target.NativeID) > 512 {
 		return 0, ErrInvalid
 	}
-	var state, scope, native string
-	if tx.QueryRow(ctx, `SELECT o.state,r.scope,r.native_id FROM operations o JOIN resources r
+	var state, scope, native, kind string
+	if tx.QueryRow(ctx, `SELECT o.state,r.scope,r.native_id,r.resource_type FROM operations o JOIN resources r
  ON (r.workspace_id,r.connection_id,r.id)=(o.workspace_id,o.connection_id,o.resource_id)
- WHERE o.workspace_id=$1 AND o.connection_id=$2 AND o.id=$3 FOR UPDATE OF o`, workspace, connection, id).Scan(&state, &scope, &native) != nil {
+ WHERE o.workspace_id=$1 AND o.connection_id=$2 AND o.id=$3 FOR UPDATE OF o`, workspace, connection, id).Scan(&state, &scope, &native, &kind) != nil {
 		return 0, ErrStore
 	}
 	if state != "queued" || target.Kind == "resource" && (scope != target.Scope || native != target.NativeID) {
@@ -37,10 +37,10 @@ func Reserve(ctx context.Context, tx pgx.Tx, workspace, connection, id uuid.UUID
 	}
 	var fence int64
 	err := tx.QueryRow(ctx, `INSERT INTO resource_locks(workspace_id,connection_id,target_kind,resource_type,scope,native_id,operation_id)
- VALUES($1,$2,$3,'compute.server',$4,$5,$6) ON CONFLICT DO NOTHING RETURNING fencing_version`, workspace, connection, target.Kind, target.Scope, target.NativeID, id).Scan(&fence)
+ VALUES($1,$2,$3,$7,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING fencing_version`, workspace, connection, target.Kind, target.Scope, target.NativeID, id, kind).Scan(&fence)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = tx.QueryRow(ctx, `SELECT fencing_version FROM resource_locks WHERE workspace_id=$1 AND connection_id=$2
-   AND target_kind=$3 AND scope=$4 AND native_id=$5 AND operation_id=$6`, workspace, connection, target.Kind, target.Scope, target.NativeID, id).Scan(&fence)
+   AND target_kind=$3 AND scope=$4 AND native_id=$5 AND operation_id=$6 AND resource_type=$7`, workspace, connection, target.Kind, target.Scope, target.NativeID, id, kind).Scan(&fence)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, ErrBusy
 		}

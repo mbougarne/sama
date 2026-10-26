@@ -113,4 +113,10 @@ var ServerCatalog = []Support{
 	{Action: "compute.server.shutdown", Class: "operate"},
 	{Action: "compute.server.power_off", Class: "operate"},
 	{Action: "compute.server.reboot", Class: "operate"},
+	{Action: SnapshotCreate, Class: "high_impact"},
+}
+
+var SnapshotCatalog = []Support{
+	{Action: "storage.snapshot.read", Class: "read"},
+	{Action: SnapshotDelete, Class: "high_impact"},
 }

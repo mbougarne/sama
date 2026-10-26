@@ -48,7 +48,7 @@ func TestResourceDetailTypedFieldsAndCurrentAdvisoryActions(t *testing.T) {
 		if strings.Contains(w.Body.String(), "credential") || strings.Contains(w.Body.String(), "ciphertext") || strings.Contains(w.Body.String(), "payload") {
 			t.Fatal("internal fields leaked")
 		}
-		if len(result.AvailableActions) != 5 || result.AvailableActions[1].Reason != expected {
+		if len(result.AvailableActions) != 6 || result.AvailableActions[1].Reason != expected {
 			t.Fatal("action reason", result.AvailableActions)
 		}
 	}
