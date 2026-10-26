@@ -200,3 +200,13 @@ future dispatch. The API does not document an image creation state; an existing
 readable snapshot is reviewed without inventing one. One DELETE accepts native
 204 only. A stored receipt plus exact-target 404 proves observed absence; denial
 or a missing receipt does not. Unknown remains reserved, never resubmitted.
+
+### Vultr dormant snapshot creation
+
+The [official client](https://github.com/vultr/govultr/blob/master/snapshot.go)
+POSTs instance_id and returns a snapshot ID, not a native action ID. The receipt
+binds the returned ID to the submitted source; GET completion must match that ID.
+This request/response binding is not source identity in the inventory model and
+is not an idempotency guarantee. Missing receipts stay unknown; never discover a
+replacement by description or repeat submission. High-impact source review and
+charge/consistency impact remain server-owned. Deleted/future states are unknown.
