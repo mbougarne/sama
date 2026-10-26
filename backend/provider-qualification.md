@@ -190,3 +190,13 @@ has no completion status or action-correlated image ID, so neither is invented.
 Fresh unlocked-source review and one POST are required. Missing receipts stay
 unknown and retain the shared worker's reservation; no label search or retry.
 Server-owned impact warns about charges and consistency. No runtime registration.
+
+### DigitalOcean dormant snapshot deletion
+
+The official [DELETE contract](https://github.com/digitalocean/openapi/blob/master/specification/resources/snapshots/snapshots_delete.yml)
+requires image:delete and snapshot:delete, plus read permissions for review.
+High-impact review requires shared recent-auth/typed-target acceptance before any
+future dispatch. The API does not document an image creation state; an existing
+readable snapshot is reviewed without inventing one. One DELETE accepts native
+204 only. A stored receipt plus exact-target 404 proves observed absence; denial
+or a missing receipt does not. Unknown remains reserved, never resubmitted.
