@@ -91,3 +91,24 @@ read/get denial and rate behavior, then run the scheduler/HTTP workflow against
 the disposable scope. Record API/fixture versions, dated command outcomes and
 remaining unknowns separately. Existing user/account identifiers, token hashes
 and server fingerprints cannot fill an unresolved project identity requirement.
+
+## Snapshot metadata contracts (SAMA-149)
+
+Reviewed 2026-10-26 against the official Hetzner
+[image schema](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/schema/image.go),
+[image client](https://github.com/hetznercloud/hcloud-go/blob/main/hcloud/image.go)
+and [token permissions](https://docs.hetzner.com/cloud/api/getting-started/generating-api-token/).
+Use a project Read token (GET only). `SnapshotReader` separately maps snapshot
+images, source server when supplied, creation timestamp, native/normalized state,
+image size and minimum disk size in provider GB. Null fields remain unavailable;
+unknown states remain unknown. Description, labels and contents are excluded.
+Pages use fixed snapshot filtering, 50 rows and at most 100 pages. A failed page
+returns no partial page; callers must finish the walk before publishing a scan.
+These ports are not wired into the server-only inventory scanner, public resource
+DTOs or production registries. Stable project identity and live read acceptance
+remain unverified; no provider credentials or live calls were used.
+
+SAMA-150/151 are blocked on SAMA-117's unrun action-specific disposable evidence.
+No snapshot create/delete implementation or enablement is claimed. Their required
+recent-auth, bound review, reservation and reconciliation integration remains work
+for after that prerequisite; mock results cannot satisfy its live evidence gate.
