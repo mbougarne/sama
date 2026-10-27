@@ -2,6 +2,7 @@ name: Quality checks
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -26,7 +27,8 @@ jobs:
       - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: backend/go.mod
-          cache: false
+          cache: true
+          cache-dependency-path: backend/go.sum
       - run: sh scripts/check.sh
       - name: Real local authentication acceptance
         env:
